@@ -6,7 +6,7 @@
 %{!?runselftest:%global runselftest 1}
 
 # Set this to 1 to see which tests fail, but 0 on production ready build
-%global ignore_testsuite_result 0
+%global ignore_testsuite_result 1
 
 # In f20+ use unversioned docdirs, otherwise the old versioned one
 %global _pkgdocdirname %{pkg_name}%{!?_pkgdocdir:-%{version}}
@@ -142,8 +142,8 @@
 %global sameevr   %{epoch}:%{version}-%{release}
 
 Name:             mariadb
-Version:          10.3.10
-Release:          1%{?with_debug:.debug}%{?dist}
+Version:          10.4.0
+Release:          1.alpha%{?with_debug:.debug}%{?dist}
 Epoch:            3
 
 Summary:          A very fast and robust SQL database server
@@ -1560,6 +1560,10 @@ fi
 %endif
 
 %changelog
+* Fri Nov 16 2018 Michal Schorm <mschorm@redhat.com> - 3:10.4.0-1
+- Rebase to 10.4.0
+- This is ALPHA release! use at your own risk.
+
 * Fri Oct 05 2018 Michal Schorm <mschorm@redhat.com> - 3:10.3.10-1
 - Rebase to 10.3.10
 
