@@ -142,8 +142,8 @@
 %global sameevr   %{epoch}:%{version}-%{release}
 
 Name:             mariadb
-Version:          10.4.0
-Release:          1.alpha%{?with_debug:.debug}%{?dist}
+Version:          10.4.1
+Release:          1.beta%{?with_debug:.debug}%{?dist}
 Epoch:            3
 
 Summary:          A very fast and robust SQL database server
@@ -794,6 +794,7 @@ export CFLAGS CXXFLAGS
          -DINSTALL_SCRIPTDIR=bin \
          -DINSTALL_SQLBENCHDIR=share \
          -DINSTALL_SUPPORTFILESDIR=share/%{pkg_name} \
+         -DINSTALL_PCDIR=%{_lib}/pkgconfig \
          -DMYSQL_DATADIR="%{dbdatadir}" \
          -DMYSQL_UNIX_ADDR="/var/lib/mysql/mysql.sock" \
          -DTMPDIR=/var/tmp \
@@ -820,6 +821,7 @@ export CFLAGS CXXFLAGS
          -DPLUGIN_CONNECT=%{?with_connect:DYNAMIC}%{!?with_connect:NO} \
          -DWITH_CASSANDRA=%{?with_cassandra:TRUE}%{!?with_cassandra:FALSE} \
          -DPLUGIN_AWS_KEY_MANAGEMENT=NO \
+         -DPLUGIN_CACHING_SHA2_PASSWORD=%{?with_clibrary:DYNAMIC}%{!?with_clibrary:OFF} \
          -DCONNECT_WITH_MONGO=OFF \
          -DCONNECT_WITH_JDBC=OFF \
 %{?with_debug: -DCMAKE_BUILD_TYPE=Debug -DWITH_ASAN=OFF -DWITH_INNODB_EXTRA_DEBUG=ON -DWITH_VALGRIND=ON}
@@ -862,6 +864,7 @@ fi
 # TODO: check, if it changes location inside that file depending on values passed to Cmake
 mkdir -p %{buildroot}/%{_libdir}/pkgconfig
 mv %{buildroot}/%{_datadir}/pkgconfig/*.pc %{buildroot}/%{_libdir}/pkgconfig
+rm %{buildroot}/usr/lib/pkgconfig/libmariadb.pc
 
 # install INFO_SRC, INFO_BIN into libdir (upstream thinks these are doc files,
 # but that's pretty wacko --- see also %%{name}-file-contents.patch)
@@ -1560,6 +1563,10 @@ fi
 %endif
 
 %changelog
+* Sun Jan 06 2019 Michal Schorm <mschorm@redhat.com> - 3:10.4.1-1
+- Rebase to 10.4.1
+- This is BETA release! use at your own risk.
+
 * Fri Nov 16 2018 Michal Schorm <mschorm@redhat.com> - 3:10.4.0-1
 - Rebase to 10.4.0
 - This is ALPHA release! use at your own risk.
