@@ -8,6 +8,16 @@
 # Set this to 1 to see which tests fail, but 0 on production ready build
 %global ignore_testsuite_result 1
 
+# The last version on which the full testsuite has been run
+# In case of further rebuilds of that version, don't require full testsuite to be run
+# run only "main" suite
+%global last_tested_version 10.4.2
+# Set to 1 to force run the testsuite even if it was already tested in current version
+%global force_run_testsuite 0
+
+# Aditional SELinux rules
+%global require_mysql_selinux 0
+
 # In f20+ use unversioned docdirs, otherwise the old versioned one
 %global _pkgdocdirname %{pkg_name}%{!?_pkgdocdir:-%{version}}
 %{!?_pkgdocdir: %global _pkgdocdir %{_docdir}/%{pkg_name}-%{version}}
@@ -109,9 +119,15 @@
 %global pcre_bundled_version 8.42
 %endif
 
+# Use main python interpretter version
+%if 0%{?fedora} || 0%{?rhel} > 7
+%global python_path /usr/bin/python3
+%else
+%global python_path /usr/bin/python2
+%endif
+
 # Include systemd files
 %global daemon_name %{name}
-%global daemondir %{_unitdir}
 %global daemon_no_prefix %{pkg_name}
 %global mysqld_pid_dir mariadb
 
@@ -142,7 +158,7 @@
 %global sameevr   %{epoch}:%{version}-%{release}
 
 Name:             mariadb
-Version:          10.4.1
+Version:          10.4.2
 Release:          1.beta%{?with_debug:.debug}%{?dist}
 Epoch:            3
 
@@ -176,8 +192,8 @@ Source71:         LICENSE.clustercheck
 # https://jira.mariadb.org/browse/MDEV-12646
 Source72:         mariadb-server-galera.te
 
-#    Patch1: Fix python shebang to specificaly say the python version
-Patch1:           %{pkgnamepatch}-shebang.patch
+#    Patch2: Make the python interpretter be configurable
+Patch2:           %{pkgnamepatch}-pythonver.patch
 #   Patch4: Red Hat distributions specific logrotate fix
 #   it would be big unexpected change, if we start shipping it now. Better wait for MariaDB 10.2
 Patch4:           %{pkgnamepatch}-logrotate.patch
@@ -185,6 +201,8 @@ Patch4:           %{pkgnamepatch}-logrotate.patch
 Patch7:           %{pkgnamepatch}-scripts.patch
 #   Patch9: pre-configure to comply with guidelines
 Patch9:           %{pkgnamepatch}-ownsetup.patch
+#   Patch10: Fix cipher name in the SSL Cipher name test
+Patch10:          %{pkgnamepatch}-ssl-cipher-tests.patch
 
 BuildRequires:    cmake gcc-c++
 BuildRequires:    multilib-rpm-config
@@ -387,16 +405,26 @@ Requires:         %{name}-common%{?_isa} = %{sameevr}
 Requires:         %{name}-errmsg%{?_isa} = %{sameevr}
 Recommends:       %{name}-server-utils%{?_isa} = %{sameevr}
 Recommends:       %{name}-backup%{?_isa} = %{sameevr}
-%{?with_cracklib:Recommends:       %{name}-cracklib-password-check%{?_isa} = %{sameevr}}
-%{?with_gssapi:Recommends:       %{name}-gssapi-server%{?_isa} = %{sameevr}}
-%{?with_rocksdb:Recommends:       %{name}-rocksdb-engine%{?_isa} = %{sameevr}}
-%{?with_tokudb:Recommends:       %{name}-tokudb-engine%{?_isa} = %{sameevr}}
+%{?with_cracklib:Recommends:   %{name}-cracklib-password-check%{?_isa} = %{sameevr}}
+%{?with_gssapi:Recommends:     %{name}-gssapi-server%{?_isa} = %{sameevr}}
+%{?with_rocksdb:Suggests:      %{name}-rocksdb-engine%{?_isa} = %{sameevr}}
+%{?with_tokudb:Suggests:       %{name}-tokudb-engine%{?_isa} = %{sameevr}}
+%{?with_sphinx:Suggests:       %{name}-sphinx-engine%{?_isa} = %{sameevr}}
+%{?with_oqgraph:Suggests:      %{name}-oqgraph-engine%{?_isa} = %{sameevr}}
+%{?with_connect:Suggests:      %{name}-connect-engine%{?_isa} = %{sameevr}}
+%{?with_cassandra:Suggests:    %{name}-cassandra-engine%{?_isa} = %{sameevr}}
 
 Suggests:         mytop
 Suggests:         logrotate
 
 Requires:         %{_sysconfdir}/my.cnf
 Requires:         %{_sysconfdir}/my.cnf.d
+
+# Aditional SELinux rules (common for MariaDB & MySQL) shipped in a separate package
+# For cases, where we want to fix a SELinux issues in MariaDB sooner than patched selinux-policy-targeted package is released
+%if %require_mysql_selinux
+Requires:         (mysql-selinux if selinux-policy-targeted)
+%endif
 
 # for fuser in mysql-check-socket
 Requires:         psmisc
@@ -676,10 +704,11 @@ sources.
 # Remove JAR files that upstream puts into tarball
 find . -name "*.jar" -type f -exec rm --verbose -f {} \;
 
-%patch1 -p1
+%patch2 -p1
 %patch4 -p1
 %patch7 -p1
 %patch9 -p1
+#%patch10 -p1
 
 # workaround for upstream bug #56342
 #rm mysql-test/t/ssl_8k_key-master.opt
@@ -755,10 +784,6 @@ rm -r storage/tokudb/mysql-test/tokudb/t/*.py
 CFLAGS="%{optflags} -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE"
 # force PIC mode so that we can build libmysqld.so
 CFLAGS="$CFLAGS -fPIC"
-# significant performance gains can be achieved by compiling with -O3 optimization; rhbz#1051069
-%ifarch ppc64
-CFLAGS=`echo $CFLAGS| sed -e "s|-O2|-O3|g" `
-%endif
 # Override all optimization flags when making a debug build
 %{?with_debug: CFLAGS="$CFLAGS -O0 -g"}
 
@@ -820,15 +845,16 @@ export CFLAGS CXXFLAGS
          -DPLUGIN_TOKUDB=%{?with_tokudb:DYNAMIC}%{!?with_tokudb:NO} \
          -DPLUGIN_CONNECT=%{?with_connect:DYNAMIC}%{!?with_connect:NO} \
          -DWITH_CASSANDRA=%{?with_cassandra:TRUE}%{!?with_cassandra:FALSE} \
-         -DPLUGIN_AWS_KEY_MANAGEMENT=NO \
+         -DPYTHON_SHEBANG=%{python_path} \
          -DPLUGIN_CACHING_SHA2_PASSWORD=%{?with_clibrary:DYNAMIC}%{!?with_clibrary:OFF} \
+         -DPLUGIN_AWS_KEY_MANAGEMENT=NO \
          -DCONNECT_WITH_MONGO=OFF \
          -DCONNECT_WITH_JDBC=OFF \
 %{?with_debug: -DCMAKE_BUILD_TYPE=Debug -DWITH_ASAN=OFF -DWITH_INNODB_EXTRA_DEBUG=ON -DWITH_VALGRIND=ON}
 
 # Print all Cmake options values
-# cmake -LAH for List Advanced Help
-cmake -L
+# cmake ./ -LAH for List Advanced Help
+cmake ./ -L
 
 make %{?_smp_mflags} VERBOSE=1
 
@@ -864,7 +890,8 @@ fi
 # TODO: check, if it changes location inside that file depending on values passed to Cmake
 mkdir -p %{buildroot}/%{_libdir}/pkgconfig
 mv %{buildroot}/%{_datadir}/pkgconfig/*.pc %{buildroot}/%{_libdir}/pkgconfig
-rm %{buildroot}/usr/lib/pkgconfig/libmariadb.pc
+# Client part should be included in package 'mariadb-connector-c'
+rm %{buildroot}%{_libdir}/pkgconfig/libmariadb.pc
 
 # install INFO_SRC, INFO_BIN into libdir (upstream thinks these are doc files,
 # but that's pretty wacko --- see also %%{name}-file-contents.patch)
@@ -982,7 +1009,7 @@ rm -r %{buildroot}%{_datadir}/%{pkg_name}/policy/apparmor
 chmod -x %{buildroot}%{_datadir}/sql-bench/myisam.cnf
 
 # Disable plugins
-%if %{with ggsapi}
+%if %{with gssapi}
 sed -i 's/^plugin-load-add/#plugin-load-add/' %{buildroot}%{_sysconfdir}/my.cnf.d/auth_gssapi.cnf
 %endif
 %if %{with cracklib}
@@ -1047,10 +1074,9 @@ rm %{buildroot}%{_mandir}/man1/tokuftdump.1*
 rm %{buildroot}%{_mandir}/man1/tokuft_logprint.1*
 %else
 %if 0%{?fedora} >= 28 || 0%{?rhel} > 7
-echo 'Environment="LD_PRELOAD=%{_libdir}/libjemalloc.so.2"' >> %{buildroot}%{_sysconfdir}/systemd/system/mariadb.service.d/tokudb.conf
+mkdir -p %{buildroot}%{_unitdir}/mariadb.service.d
+echo -e '[Service]\nEnvironment="LD_PRELOAD=%{_libdir}/libjemalloc.so.2"' >> %{buildroot}%{_unitdir}/mariadb.service.d/tokudb.conf
 %endif
-# Move to better location, systemd config files has to be in /lib/
-mv %{buildroot}%{_sysconfdir}/systemd/system/mariadb.service.d %{buildroot}/usr/lib/systemd/system/
 %endif
 
 %if %{without config}
@@ -1125,28 +1151,35 @@ export MTR_BUILD_THREAD=%{__isa_bits}
 
 (
   set -ex
-
   cd mysql-test
-  perl ./mysql-test-run.pl --parallel=auto --force --retry=1 --ssl \
-    --suite-timeout=900 --testcase-timeout=30 \
-    --mysqld=--binlog-format=mixed --force-restart \
-    --shutdown-timeout=60 --max-test-fail=5 --big-test \
-    --skip-test=spider \
-%if %{ignore_testsuite_result}
-    --max-test-fail=9999 || :
-%else
-    --skip-test-list=unstable-tests
-%endif
 
-# Second run for the SPIDER suites that fail with SCA (ssl self signed certificate)
-  perl ./mysql-test-run.pl --parallel=auto --force --retry=1 \
-    --suite-timeout=60 --testcase-timeout=10 \
-    --mysqld=--binlog-format=mixed --force-restart \
-    --shutdown-timeout=60 --max-test-fail=0 --big-test \
-    --skip-ssl --suite=spider,spider/bg \
-%if %{ignore_testsuite_result}
-    --max-test-fail=999 || :
-%endif
+  export common_testsuite_arguments=" --parallel=auto --force --retry=1 --suite-timeout=900 --testcase-timeout=30 --mysqld=--binlog-format=mixed --force-restart --shutdown-timeout=60 --max-test-fail=5 "
+
+  # If full testsuite has already been run on this version and we don't explicitly want the full testsuite to be run
+  if [[ "%{last_tested_version}" == "%{version}" ]] && [[ %{force_run_testsuite} -eq 0 ]]
+  then
+    # in further rebuilds only run the basic "main" suite (~800 tests)
+    echo "running only base testsuite"
+    perl ./mysql-test-run.pl $common_testsuite_arguments --ssl --suite=main --mem --skip-test-list=unstable-tests
+  fi
+
+  # If either this version wasn't marked as tested yet or I explicitly want to run the testsuite, run everything we have (~4000 test)
+  if [[ "%{last_tested_version}" != "%{version}" ]] || [[ %{force_run_testsuite} -ne 0 ]]
+  then
+    echo "running advanced testsuite"
+    perl ./mysql-test-run.pl $common_testsuite_arguments --ssl --big-test --skip-test=spider \
+    %if %{ignore_testsuite_result}
+      --max-test-fail=9999 || :
+    %else
+      --skip-test-list=unstable-tests
+    %endif
+    # Second run for the SPIDER suites that fail with SCA (ssl self signed certificate)
+    perl ./mysql-test-run.pl $common_testsuite_arguments --skip-ssl --big-test --mem --suite=spider,spider/bg \
+    %if %{ignore_testsuite_result}
+      --max-test-fail=999 || :
+    %endif
+  # blank line
+  fi
 )
 
 %endif # if dry run
@@ -1340,7 +1373,7 @@ fi
 %{?with_cracklib:%exclude %{_libdir}/%{pkg_name}/plugin/cracklib_password_check.so}
 %{?with_rocksdb:%exclude %{_libdir}/%{pkg_name}/plugin/ha_rocksdb.so}
 %{?with_tokudb:%exclude %{_libdir}/%{pkg_name}/plugin/ha_tokudb.so}
-%{?with_ggsapi:%exclude %{_libdir}/%{pkg_name}/plugin/auth_gssapi.so}
+%{?with_gssapi:%exclude %{_libdir}/%{pkg_name}/plugin/auth_gssapi.so}
 %{?with_sphinx:%exclude %{_libdir}/%{pkg_name}/plugin/ha_sphinx.so}
 %{?with_cassandra:%exclude %{_libdir}/%{pkg_name}/plugin/ha_cassandra.so}
 %if %{with clibrary}
@@ -1407,7 +1440,9 @@ fi
 %{_datadir}/%{pkg_name}/systemd/mariadb@.service
 %endif
 
-%{daemondir}/%{daemon_name}*
+%{_unitdir}/%{daemon_name}*
+%{?with_tokudb:%exclude %{_unitdir}/mariadb.service.d/tokudb.conf}
+
 %{_libexecdir}/mysql-prepare-db-dir
 %{_libexecdir}/mysql-check-socket
 %{_libexecdir}/mysql-check-upgrade
@@ -1456,7 +1491,7 @@ fi
 %{_mandir}/man1/tokuft_logprint.1*
 %config(noreplace) %{_sysconfdir}/my.cnf.d/tokudb.cnf
 %{_libdir}/%{pkg_name}/plugin/ha_tokudb.so
-/usr/lib/systemd/system/mariadb.service.d/tokudb.conf
+%{_unitdir}/mariadb.service.d/tokudb.conf
 %endif
 
 %if %{with gssapi}
@@ -1563,9 +1598,59 @@ fi
 %endif
 
 %changelog
+* Mon Feb 18 2019 Michal Schorm <mschorm@redhat.com> - 3:10.4.2-1
+- Rebase to 10.4.2
+- This is BETA release! use at your own risk.
+
+* Mon Feb 11 2019 Michal Schorm <mschorm@redhat.com> - 3:10.3.12-10
+- Disable the requirement of mysql-selinux, until its bug is solved for good; #1665643
+
+* Fri Feb 01 2019 Fedora Release Engineering <releng@fedoraproject.org> - 3:10.3.12-9
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_30_Mass_Rebuild
+
+* Wed Jan 30 2019 Honza Horak <hhorak@redhat.com> - 3:10.3.12-8
+- Fix several SSL tests that failed because of different SSL cipher expectation
+
+* Wed Jan 23 2019 Michal Schorm <mschorm@redhat.com> - 3:10.3.12-7
+- Fix TokuDB Jemalloc ld_preload
+  Resolves: #1668375
+- Tweak macros usage
+
+* Sat Jan 19 2019 Michal Schorm <mschorm@redhat.com> - 3:10.3.12-6
+- Enable mysql-selinux requirement
+- Tweak the testsuite execution, speed up the testsuite on rebuilds
+- Change weak dependency of RocksDB and TokuDB storage engines
+  from Recommends to Suggests
+- Add "Suggests" weak dependencies to more storage engines
+
+* Wed Jan 16 2019 Michal Schorm <mschorm@redhat.com> - 3:10.3.12-5
+- Tweak handling of the mysql-selinux requirement, leave disabled due to #1665643
+
+* Mon Jan 14 2019 Björn Esser <besser82@fedoraproject.org> - 3:10.3.12-4
+- Rebuilt for libcrypt.so.2 (#1666033)
+
+* Fri Jan 11 2019 Kevin Fenzi <kevin@scrye.com> - 3:10.3.12-3
+- Drop mysql-selinux recommends for now due to bug #1665643
+
+* Wed Jan 09 2019 Honza Horak <hhorak@redhat.com> - 3:10.3.12-2
+- Use specific python shebang
+
+* Tue Jan 08 2019 Michal Schorm <mschorm@redhat.com> - 3:10.3.12-1
+- Rebase to 10.3.12
+- Disable building of the caching_sha2_password plugin, it is shipped
+  by 'mariadb-connector-c'
+- Remove libmariadb.pc, is it shipped by 'mariadb-connector-c'
+
 * Sun Jan 06 2019 Michal Schorm <mschorm@redhat.com> - 3:10.4.1-1
 - Rebase to 10.4.1
 - This is BETA release! use at your own risk.
+
+* Mon Dec 10 2018 Michal Schorm <mschorm@redhat.com> - 3:10.3.11-1
+- Rebase to 10.3.11
+- CVEs fixed:
+  CVE-2018-3282, CVE-2016-9843, CVE-2018-3174, CVE-2018-3143, CVE-2018-3156
+  CVE-2018-3251, CVE-2018-3185, CVE-2018-3277, CVE-2018-3162, CVE-2018-3173
+  CVE-2018-3200, CVE-2018-3284
 
 * Fri Nov 16 2018 Michal Schorm <mschorm@redhat.com> - 3:10.4.0-1
 - Rebase to 10.4.0
