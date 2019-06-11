@@ -3,20 +3,20 @@
 %global pkgnamepatch mariadb
 
 # Regression tests may take a long time (many cores recommended), skip them by
-%{!?runselftest:%global runselftest 1}
+%{!?runselftest:%global runselftest 0}
 
 # Set this to 1 to see which tests fail, but 0 on production ready build
-%global ignore_testsuite_result 1
+%global ignore_testsuite_result 0
 
 # The last version on which the full testsuite has been run
 # In case of further rebuilds of that version, don't require full testsuite to be run
 # run only "main" suite
-%global last_tested_version 10.4.2
+%global last_tested_version 10.4.5
 # Set to 1 to force run the testsuite even if it was already tested in current version
 %global force_run_testsuite 0
 
 # Aditional SELinux rules
-%global require_mysql_selinux 0
+%global require_mysql_selinux 1
 
 # In f20+ use unversioned docdirs, otherwise the old versioned one
 %global _pkgdocdirname %{pkg_name}%{!?_pkgdocdir:-%{version}}
@@ -72,7 +72,7 @@
 %bcond_without gssapi
 
 # For some use cases we do not need some parts of the package. Set to "...with" to exclude
-%if 0%{?fedora} >= 28 || 0%{?rhel} > 7
+%if 0%{?fedora} || 0%{?rhel} > 7
 %bcond_with    clibrary
 %else
 %bcond_without clibrary
@@ -85,6 +85,7 @@
 %bcond_without test
 %bcond_without galera
 %bcond_without backup
+# Upstream no longer maintain and pack the bench subpackage
 %if 0%{?fedora}
 %bcond_without bench
 %else
@@ -104,8 +105,6 @@
 %bcond_with    debug
 
 # Page compression algorithms for InnoDB & XtraDB
-# lz4 currently cannot be turned off by CMake, only by not having lz4-devel package in the buildroot
-#   https://jira.mariadb.org/browse/MDEV-15932
 %bcond_without lz4
 
 
@@ -158,8 +157,8 @@
 %global sameevr   %{epoch}:%{version}-%{release}
 
 Name:             mariadb
-Version:          10.4.2
-Release:          1.beta%{?with_debug:.debug}%{?dist}
+Version:          10.4.5
+Release:          1.rc%{?with_debug:.debug}%{?dist}
 Epoch:            3
 
 Summary:          A very fast and robust SQL database server
@@ -192,7 +191,7 @@ Source71:         LICENSE.clustercheck
 # https://jira.mariadb.org/browse/MDEV-12646
 Source72:         mariadb-server-galera.te
 
-#    Patch2: Make the python interpretter be configurable
+#   Patch2: Make the python interpretter be configurable
 Patch2:           %{pkgnamepatch}-pythonver.patch
 #   Patch4: Red Hat distributions specific logrotate fix
 #   it would be big unexpected change, if we start shipping it now. Better wait for MariaDB 10.2
@@ -259,7 +258,7 @@ Requires:         bash coreutils grep
 
 Requires:         %{name}-common%{?_isa} = %{sameevr}
 
-%if %{with clibrary}
+%if %{with clibrary} || %{with galera}
 # Explicit EVR requirement for -libs is needed for RHBZ#1406320
 Requires:         %{name}-libs%{?_isa} = %{sameevr}
 %else
@@ -297,7 +296,7 @@ The base package contains the standard MariaDB/MySQL client programs and
 generic MySQL files.
 
 
-%if %{with clibrary}
+%if %{with clibrary} || %{with galera}
 %package          libs
 Summary:          The shared libraries required for MariaDB/MySQL clients
 Requires:         %{name}-common%{?_isa} = %{sameevr}
@@ -343,7 +342,7 @@ Requires:         %{_sysconfdir}/my.cnf
 # obsoletion of mariadb-galera-common
 Provides: mariadb-galera-common = %{sameevr}
 
-%if %{without clibrary}
+%if %{without clibrary} && %{without galera}
 Obsoletes: %{name}-libs <= %{sameevr}
 %endif
 
@@ -587,9 +586,10 @@ the only MariaDB sub-package, except test subpackage, that depends on Perl.
 %if %{with devel}
 %package          devel
 Summary:          Files for development of MariaDB/MySQL applications
-%{?with_clibrary:Requires:         %{name}-libs%{?_isa} = %{sameevr}}
 Requires:         openssl-devel
-%if %{without clibrary}
+%if %{with clibrary} || %{with galera}
+Requires:         %{name}-libs%{?_isa} = %{sameevr}
+%else
 Requires:         mariadb-connector-c-devel >= 3.0
 %endif
 %if %{with mysql_names}
@@ -834,9 +834,11 @@ export CFLAGS CXXFLAGS
          -DCONC_WITH_SSL=%{?with_clibrary:ON}%{!?with_clibrary:NO} \
          -DWITH_SSL=system \
          -DWITH_ZLIB=system \
-         -DWITH_JEMALLOC=%{?with_tokudb:YES}%{!?with_tokudb:NO} \
+         -DWITH_JEMALLOC=%{?with_tokudb:yes}%{!?with_tokudb:no} \
          -DLZ4_LIBS=%{_libdir}/liblz4.so \
+         -DLZ4_LIBS=%{?with_lz4:%{_libdir}/liblz4.so}%{!?with_lz4:} \
          -DWITH_INNODB_LZ4=%{?with_lz4:ON}%{!?with_lz4:OFF} \
+         -DWITH_ROCKSDB_LZ4=%{?with_lz4:ON}%{!?with_lz4:OFF} \
          -DPLUGIN_MROONGA=%{?with_mroonga:DYNAMIC}%{!?with_mroonga:NO} \
          -DPLUGIN_OQGRAPH=%{?with_oqgraph:DYNAMIC}%{!?with_oqgraph:NO} \
          -DPLUGIN_CRACKLIB_PASSWORD_CHECK=%{?with_cracklib:DYNAMIC}%{!?with_cracklib:NO} \
@@ -868,6 +870,12 @@ make -f /usr/share/selinux/devel/Makefile %{name}-server-galera.pp
 %install
 make DESTDIR=%{buildroot} install
 
+%if %{with galera}
+# Install the wsrep library
+install -D -p -m 0755 wsrep-lib/wsrep-API/libwsrep_api_v*.so %{buildroot}%{_libdir}
+install -D -p -m 0755 wsrep-lib/src/libwsrep-lib.so %{buildroot}%{_libdir}
+%endif
+
 # multilib header support #1625157
 for header in mysql/server/my_config.h mysql/server/private/config.h; do
 %multilib_fix_c_header --file %{_includedir}/$header
@@ -890,8 +898,10 @@ fi
 # TODO: check, if it changes location inside that file depending on values passed to Cmake
 mkdir -p %{buildroot}/%{_libdir}/pkgconfig
 mv %{buildroot}/%{_datadir}/pkgconfig/*.pc %{buildroot}/%{_libdir}/pkgconfig
+%if %{without clibrary}
 # Client part should be included in package 'mariadb-connector-c'
 rm %{buildroot}%{_libdir}/pkgconfig/libmariadb.pc
+%endif
 
 # install INFO_SRC, INFO_BIN into libdir (upstream thinks these are doc files,
 # but that's pretty wacko --- see also %%{name}-file-contents.patch)
@@ -923,7 +933,6 @@ mv %{buildroot}%{_sysconfdir}/my.cnf.d/server.cnf %{buildroot}%{_sysconfdir}/my.
 mv %{buildroot}%{_sysusersdir}/sysusers.conf %{buildroot}%{_sysusersdir}/%{name}.conf
 
 # remove SysV init script and a symlink to that, we pack our very own
-rm %{buildroot}%{_sysconfdir}/init.d/mysql
 rm %{buildroot}%{_libexecdir}/rcmysql
 # install systemd unit files and scripts for handling server startup
 install -D -p -m 644 scripts/mysql.service %{buildroot}%{_unitdir}/%{daemon_name}.service
@@ -993,15 +1002,17 @@ install -p -m 0644 %{SOURCE16} %{basename:%{SOURCE16}}
 install -p -m 0644 %{SOURCE71} %{basename:%{SOURCE71}}
 
 # install galera config file
+%if %{with galera}
 sed -i -r 's|^wsrep_provider=none|wsrep_provider=%{_libdir}/galera/libgalera_smm.so|' support-files/wsrep.cnf
 install -p -m 0644 support-files/wsrep.cnf %{buildroot}%{_sysconfdir}/my.cnf.d/galera.cnf
+%endif
 # install the clustercheck script
 mkdir -p %{buildroot}%{_sysconfdir}/sysconfig
 touch %{buildroot}%{_sysconfdir}/sysconfig/clustercheck
 install -p -m 0755 scripts/clustercheck %{buildroot}%{_bindir}/clustercheck
 
 # remove duplicate logrotate script
-rm %{buildroot}%{_sysconfdir}/logrotate.d/mysql
+rm %{buildroot}%{logrotateddir}/mysql
 # Remove AppArmor files
 rm -r %{buildroot}%{_datadir}/%{pkg_name}/policy/apparmor
 
@@ -1029,7 +1040,10 @@ unlink %{buildroot}%{_libdir}/libmysqlclient.so
 unlink %{buildroot}%{_libdir}/libmysqlclient_r.so
 unlink %{buildroot}%{_libdir}/libmariadb.so
 # Client plugins
-rm %{buildroot}%{_libdir}/%{pkg_name}/plugin/{dialog.so,mysql_clear_password.so,sha256_password.so,auth_gssapi_client.so}
+rm %{buildroot}%{_libdir}/%{pkg_name}/plugin/{dialog.so,mysql_clear_password.so,sha256_password.so}
+%if %{with gssapi}
+rm %{buildroot}%{_libdir}/%{pkg_name}/plugin/auth_gssapi_client.so
+%endif
 %endif
 
 %if %{without clibrary} || %{without devel}
@@ -1073,7 +1087,8 @@ rm %{buildroot}%{_sysconfdir}/my.cnf.d/mysql-clients.cnf
 rm %{buildroot}%{_mandir}/man1/tokuftdump.1*
 rm %{buildroot}%{_mandir}/man1/tokuft_logprint.1*
 %else
-%if 0%{?fedora} >= 28 || 0%{?rhel} > 7
+%if 0%{?fedora} || 0%{?rhel} > 7
+rm -f %{buildroot}/etc/systemd/system/mariadb.service.d/tokudb.conf
 mkdir -p %{buildroot}%{_unitdir}/mariadb.service.d
 echo -e '[Service]\nEnvironment="LD_PRELOAD=%{_libdir}/libjemalloc.so.2"' >> %{buildroot}%{_unitdir}/mariadb.service.d/tokudb.conf
 %endif
@@ -1088,7 +1103,7 @@ rm -r %{buildroot}%{_datadir}/%{pkg_name}/charsets
 %endif
 
 %if %{without gssapi}
-rm -r %{buildroot}/etc/my.cnf.d/auth_gssapi.cnf
+#rm -r %{buildroot}/etc/my.cnf.d/auth_gssapi.cnf
 %endif
 
 %if %{without errmsg}
@@ -1114,7 +1129,7 @@ rm %{buildroot}%{_mandir}/man1/{mysql-test-run,mysql-stress-test}.pl.1*
 %endif # test
 
 %if %{without galera}
-rm %{buildroot}%{_sysconfdir}/my.cnf.d/galera.cnf
+#rm %{buildroot}%{_sysconfdir}/my.cnf.d/galera.cnf
 rm %{buildroot}%{_sysconfdir}/sysconfig/clustercheck
 rm %{buildroot}%{_bindir}/{clustercheck,galera_new_cluster}
 rm %{buildroot}%{_bindir}/galera_recovery
@@ -1192,16 +1207,6 @@ export MTR_BUILD_THREAD=%{__isa_bits}
 /usr/sbin/useradd -M -N -g mysql -o -r -d %{mysqluserhome} -s /sbin/nologin \
   -c "MySQL Server" -u 27 mysql >/dev/null 2>&1 || :
 
-%if %{with clibrary}
-# Can be dropped on F27 EOL
-%ldconfig_scriptlets libs
-%endif
-
-%if %{with embedded}
-# Can be dropped on F27 EOL
-%ldconfig_scriptlets embedded
-%endif
-
 %if %{with galera}
 %post server-galera
 # Do what README at support-files/policy/selinux/README and upstream page
@@ -1260,12 +1265,19 @@ fi
 %{_mandir}/man1/mysqlshow.1*
 %{_mandir}/man1/mysqlslap.1*
 %config(noreplace) %{_sysconfdir}/my.cnf.d/mysql-clients.cnf
+
 %endif
 
-%if %{with clibrary}
+%if %{with clibrary} || %{with galera}
 %files libs
-%{_libdir}/libmariadb.so.*
+%if %{with galera}
+%{_libdir}/libwsrep*.so*
+%endif
+%if %{with clibrary}
+%exclude %{_libdir}/{libmysqlclient.so.18,libmariadb.so,libmysqlclient.so,libmysqlclient_r.so}
+%{_libdir}/libmariadb.so*
 %config(noreplace) %{_sysconfdir}/my.cnf.d/client.cnf
+%endif
 %endif
 
 %if %{with config}
@@ -1399,7 +1411,6 @@ fi
 %{_mandir}/man1/mysql_secure_installation.1*
 %{_mandir}/man1/mysql_tzinfo_to_sql.1*
 %{_mandir}/man1/mysqld_safe.1*
-%{_mandir}/man1/mysqld_safe_helper.1*
 %{_mandir}/man1/innochecksum.1*
 %{_mandir}/man1/replace.1*
 %{_mandir}/man1/resolveip.1*
@@ -1427,7 +1438,9 @@ fi
 %doc %{_datadir}/groonga-normalizer-mysql/README.md
 %doc %{_datadir}/groonga/README.md
 %endif
+%if %{with galera}
 %{_datadir}/%{pkg_name}/wsrep.cnf
+%endif
 %{_datadir}/%{pkg_name}/wsrep_notify
 %dir %{_datadir}/%{pkg_name}/policy
 %dir %{_datadir}/%{pkg_name}/policy/selinux
@@ -1544,12 +1557,13 @@ fi
 %{_mandir}/man1/perror.1*
 # Other utilities
 %{_bindir}/mysqld_safe_helper
+%{_mandir}/man1/mysqld_safe_helper.1*
 
 %if %{with devel}
 %files devel
 %{_includedir}/*
 %{_datadir}/aclocal/mysql.m4
-%{_libdir}/pkgconfig/mariadb.pc
+%{_libdir}/pkgconfig/*mariadb.pc
 %if %{with clibrary}
 %{_libdir}/{libmysqlclient.so.18,libmariadb.so,libmysqlclient.so,libmysqlclient_r.so}
 %{_bindir}/mysql_config*
@@ -1598,9 +1612,29 @@ fi
 %endif
 
 %changelog
-* Mon Feb 18 2019 Michal Schorm <mschorm@redhat.com> - 3:10.4.2-1
-- Rebase to 10.4.2
-- This is BETA release! use at your own risk.
+* Fri Jun 07 2019 Michal Schorm <mschorm@redhat.com> - 3:10.4.5-1
+- Rebase to 10.4.5
+- This is a RC release! use with caution
+
+* Tue Jun 04 2019 Michal Schorm <mschorm@redhat.com> - 3:10.3.15-1
+- Rebase to 10.3.15
+- CVEs fixed:
+  CVE-2019-2510 CVE-2019-2537
+- CVEs fixed:
+  CVE-2019-2614 CVE-2019-2627 CVE-2019-2628
+
+* Thu Mar 21 2019 Michal Schorm <mschorm@redhat.com> - 10.3.12-14
+- Fix building of TokuDB with Jemalloc 5
+- Fix building with / without lz4
+
+* Thu Mar 21 2019 Michal Schorm <mschorm@redhat.com> - 10.3.12-13
+- Add patch for mysqld_safe --dry-run
+
+* Wed Mar 20 2019 Michal Schorm <mschorm@redhat.com> - 10.3.12-12
+- Add patch for server pkgconfig file location
+
+* Sat Feb 23 2019 Pavel Raiskup <praiskup@redhat.com> - 10.3.12-11
+- conditionally depend on selinux-policy-targeted again (rhbz#1665643)
 
 * Mon Feb 11 2019 Michal Schorm <mschorm@redhat.com> - 3:10.3.12-10
 - Disable the requirement of mysql-selinux, until its bug is solved for good; #1665643
@@ -1641,20 +1675,12 @@ fi
   by 'mariadb-connector-c'
 - Remove libmariadb.pc, is it shipped by 'mariadb-connector-c'
 
-* Sun Jan 06 2019 Michal Schorm <mschorm@redhat.com> - 3:10.4.1-1
-- Rebase to 10.4.1
-- This is BETA release! use at your own risk.
-
 * Mon Dec 10 2018 Michal Schorm <mschorm@redhat.com> - 3:10.3.11-1
 - Rebase to 10.3.11
 - CVEs fixed:
   CVE-2018-3282, CVE-2016-9843, CVE-2018-3174, CVE-2018-3143, CVE-2018-3156
   CVE-2018-3251, CVE-2018-3185, CVE-2018-3277, CVE-2018-3162, CVE-2018-3173
   CVE-2018-3200, CVE-2018-3284
-
-* Fri Nov 16 2018 Michal Schorm <mschorm@redhat.com> - 3:10.4.0-1
-- Rebase to 10.4.0
-- This is ALPHA release! use at your own risk.
 
 * Fri Oct 05 2018 Michal Schorm <mschorm@redhat.com> - 3:10.3.10-1
 - Rebase to 10.3.10
