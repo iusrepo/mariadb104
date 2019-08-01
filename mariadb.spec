@@ -6,12 +6,12 @@
 %{!?runselftest:%global runselftest 1}
 
 # Set this to 1 to see which tests fail, but 0 on production ready build
-%global ignore_testsuite_result 1
+%global ignore_testsuite_result 0
 
 # The last version on which the full testsuite has been run
 # In case of further rebuilds of that version, don't require full testsuite to be run
 # run only "main" suite
-%global last_tested_version 10.3.16
+%global last_tested_version 10.3.17
 # Set to 1 to force run the testsuite even if it was already tested in current version
 %global force_run_testsuite 0
 
@@ -110,7 +110,7 @@
 %bcond_without unbundled_pcre
 %else
 %bcond_with unbundled_pcre
-%global pcre_bundled_version 8.42
+%global pcre_bundled_version 8.43
 %endif
 
 # Use main python interpretter version
@@ -152,8 +152,8 @@
 %global sameevr   %{epoch}:%{version}-%{release}
 
 Name:             mariadb
-Version:          10.3.16
-Release:          2%{?with_debug:.debug}%{?dist}
+Version:          10.3.17
+Release:          1%{?with_debug:.debug}%{?dist}
 Epoch:            3
 
 Summary:          A very fast and robust SQL database server
@@ -1580,6 +1580,9 @@ fi
 %endif
 
 %changelog
+* Thu Aug 01 2019 Michal Schorm <mschorm@redhat.com> - 10.3.17-1
+- Rebase to 10.3.17
+
 * Thu Jul 25 2019 Fedora Release Engineering <releng@fedoraproject.org> - 3:10.3.16-2
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_31_Mass_Rebuild
 

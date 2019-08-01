@@ -1,9 +1,6 @@
 # Fails since 10.2.15
-disks.disks :
-
-# Fails since 10.3.9
-binlog.binlog_flush_binlogs_delete_domain :
-handler.heap :
-handler.interface :
-innodb_fts.innodb_fts_misc :
-rpl.rpl_gtid_delete_domain :
+disks.disks                    :
+# Fails since 10.3.17
+disks.disks_notemysql-test-run :
+innodb.innodb_defrag_binlog    :
+innodb.trx_id_future           :
