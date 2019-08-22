@@ -115,7 +115,7 @@
 %bcond_without unbundled_pcre
 %else
 %bcond_with unbundled_pcre
-%global pcre_bundled_version 8.42
+%global pcre_bundled_version 8.43
 %endif
 
 # Use main python interpretter version
@@ -157,8 +157,8 @@
 %global sameevr   %{epoch}:%{version}-%{release}
 
 Name:             mariadb
-Version:          10.4.6
-Release:          2%{?with_debug:.debug}%{?dist}
+Version:          10.4.7
+Release:          1%{?with_debug:.debug}%{?dist}
 Epoch:            3
 
 Summary:          A very fast and robust SQL database server
@@ -1598,6 +1598,9 @@ fi
 %endif
 
 %changelog
+* Thu Aug 22 2019 Michal Schorm <mschorm@redhat.com> - 3:10.4.7-1
+- Rebase to 10.4.7
+
 * Fri Jun 21 2019 Michal Schorm <mschorm@redhat.com> - 3:10.4.6-2
 - Apply critical patch for Spider SE on Armv7hl architecture
 
