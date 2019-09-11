@@ -153,7 +153,7 @@
 
 Name:             mariadb
 Version:          10.3.17
-Release:          2%{?with_debug:.debug}%{?dist}
+Release:          3%{?with_debug:.debug}%{?dist}
 Epoch:            3
 
 Summary:          A very fast and robust SQL database server
@@ -842,6 +842,7 @@ export CFLAGS CXXFLAGS CPPFLAGS
          -DPLUGIN_SPHINX=%{?with_sphinx:DYNAMIC}%{!?with_sphinx:NO} \
          -DPLUGIN_TOKUDB=%{?with_tokudb:DYNAMIC}%{!?with_tokudb:NO} \
          -DPLUGIN_CONNECT=%{?with_connect:DYNAMIC}%{!?with_connect:NO} \
+         -DPLUGIN_CLIENT_ED25519=OFF \
          -DPYTHON_SHEBANG=%{python_path} \
          -DPLUGIN_CACHING_SHA2_PASSWORD=%{?with_clibrary:DYNAMIC}%{!?with_clibrary:OFF} \
          -DPLUGIN_AWS_KEY_MANAGEMENT=NO \
@@ -1575,6 +1576,10 @@ fi
 %endif
 
 %changelog
+* Wed Sep 11 2019 Michal Schorm <mschorm@redhat.com> - 10.3.17-3
+- Disable building of the ed25519 client plugin.
+  From now on it will be shipped by 'mariadb-connector-c' package
+
 * Fri Sep 06 2019 Michal Schorm <mschorm@redhat.com> - 10.3.17-2
 - Fix the debug build
 
