@@ -1149,7 +1149,7 @@ export MTR_BUILD_THREAD=%{__isa_bits}
   set -ex
   cd mysql-test
 
-  export common_testsuite_arguments=" --parallel=auto --force --retry=1 --suite-timeout=900 --testcase-timeout=30 --mysqld=--binlog-format=mixed --force-restart --shutdown-timeout=60 --max-test-fail=5 "
+  export common_testsuite_arguments=" --parallel=auto --force --retry=2 --suite-timeout=900 --testcase-timeout=30 --mysqld=--binlog-format=mixed --force-restart --shutdown-timeout=60 --max-test-fail=5 "
 
   # If full testsuite has already been run on this version and we don't explicitly want the full testsuite to be run
   if [[ "%{last_tested_version}" == "%{version}" ]] && [[ %{force_run_testsuite} -eq 0 ]]
@@ -1170,13 +1170,16 @@ export MTR_BUILD_THREAD=%{__isa_bits}
       --skip-test-list=unstable-tests
     %endif
     # Second run for the SPIDER suites that fail with SCA (ssl self signed certificate)
-    perl ./mysql-test-run.pl $common_testsuite_arguments --skip-ssl --big-test --mem --suite=spider,spider/bg \
+    perl ./mysql-test-run.pl $common_testsuite_arguments --skip-ssl --big-test --mem --suite=spider,spider/bg,spider/bugfix,spider/handler \
     %if %{ignore_testsuite_result}
       --max-test-fail=999 || :
     %endif
   # blank line
   fi
 )
+
+# NOTE: the Spider SE has 2 more hidden testsuites "oracle" and "oracle2".
+#       however, all of the tests fail with: "failed: 12521: Can't use wrapper 'oracle' for SQL connection"
 
 %endif
 %endif

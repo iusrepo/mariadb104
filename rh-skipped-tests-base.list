@@ -36,3 +36,6 @@ main.mysql                                   :
 
 # Fails everywhere from 10.3.17
 versioning.update-big                        :
+
+# Expected to fail, the plugin is not build with server, but 'mariadb-connector-c' instead
+plugins.auth_ed25519                        :
