@@ -87,7 +87,7 @@
 %bcond_without backup
 # Upstream no longer maintain and pack the bench subpackage
 %if 0%{?fedora}
-%bcond_without bench
+%bcond_with bench
 %else
 %bcond_with bench
 %endif
@@ -1602,6 +1602,7 @@ fi
 * Wed Sep 25 2019 Michal Schorm <mschorm@redhat.com> - 3:10.4.7-2
 - Disable building of the ed25519 client plugin.
   From now on it will be shipped by 'mariadb-connector-c' package
+- Disable building of bench subpackage. Upstream no longer maintain it
 
 * Thu Aug 22 2019 Michal Schorm <mschorm@redhat.com> - 3:10.4.7-1
 - Rebase to 10.4.7
