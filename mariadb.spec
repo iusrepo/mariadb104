@@ -152,8 +152,8 @@
 %global sameevr   %{epoch}:%{version}-%{release}
 
 Name:             mariadb
-Version:          10.3.17
-Release:          3%{?with_debug:.debug}%{?dist}
+Version:          10.3.18
+Release:          1%{?with_debug:.debug}%{?dist}
 Epoch:            3
 
 Summary:          A very fast and robust SQL database server
@@ -1579,6 +1579,9 @@ fi
 %endif
 
 %changelog
+* Thu Oct 31 2019 Carl George <carl@george.computer> - 3:10.3.18-1
+- Rebase to 10.3.18
+
 * Wed Sep 11 2019 Michal Schorm <mschorm@redhat.com> - 10.3.17-3
 - Disable building of the ed25519 client plugin.
   From now on it will be shipped by 'mariadb-connector-c' package
