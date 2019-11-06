@@ -152,7 +152,7 @@
 %global sameevr   %{epoch}:%{version}-%{release}
 
 Name:             mariadb
-Version:          10.3.18
+Version:          10.3.19
 Release:          1%{?with_debug:.debug}%{?dist}
 Epoch:            3
 
@@ -199,8 +199,6 @@ Patch9:           %{pkgnamepatch}-ownsetup.patch
 Patch10:          %{pkgnamepatch}-ssl-cipher-tests.patch
 #   Patch11: Use PCDIR CMake option, if configured
 Patch11:          %{pkgnamepatch}-pcdir.patch
-#   Patch12: Fix mysqld_safe --dry-run
-Patch12:          %{pkgnamepatch}-mysqld_safe.patch
 #   Patch13: Fix Spider code on armv7hl; https://jira.mariadb.org/browse/MDEV-18737
 Patch13:          %{pkgnamepatch}-spider_on_armv7hl.patch
 #   Patch14: Remove the '-Werror' flag so the debug build won't crash on random warnings
@@ -701,7 +699,6 @@ find . -name "*.jar" -type f -exec rm --verbose -f {} \;
 %patch9 -p1
 %patch10 -p1
 %patch11 -p1
-%patch12 -p1
 %patch13 -p1
 %patch14 -p1
 
@@ -1579,6 +1576,9 @@ fi
 %endif
 
 %changelog
+* Wed Nov 06 2019 Michal Schorm <mschorm@redhat.com> - 10.3.19-1
+- Rebase to 10.3.19
+
 * Thu Oct 31 2019 Carl George <carl@george.computer> - 3:10.3.18-1
 - Rebase to 10.3.18
 
