@@ -153,7 +153,7 @@
 
 Name:             mariadb
 Version:          10.3.20
-Release:          1%{?with_debug:.debug}%{?dist}
+Release:          2%{?with_debug:.debug}%{?dist}
 Epoch:            3
 
 Summary:          A very fast and robust SQL database server
@@ -1576,6 +1576,9 @@ fi
 %endif
 
 %changelog
+* Tue Nov 12 2019 Michal Schorm <mschorm@redhat.com> - 10.3.20-2
+- Rebuild on top fo new mariadb-connector-c
+
 * Mon Nov 11 2019 Michal Schorm <mschorm@redhat.com> - 10.3.20-1
 - Rebase to 10.3.20
 
