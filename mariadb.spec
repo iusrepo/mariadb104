@@ -157,8 +157,8 @@
 %global sameevr   %{epoch}:%{version}-%{release}
 
 Name:             mariadb
-Version:          10.4.7
-Release:          2%{?with_debug:.debug}%{?dist}
+Version:          10.4.10
+Release:          1%{?with_debug:.debug}%{?dist}
 Epoch:            3
 
 Summary:          A very fast and robust SQL database server
@@ -257,6 +257,10 @@ BuildRequires:    perl(Time::HiRes)
 BuildRequires:    perl(Symbol)
 # for running some openssl tests rhbz#1189180
 BuildRequires:    openssl openssl-devel
+
+%if %{with debug}
+BuildRequires:    valgrind-devel
+%endif
 
 Requires:         bash coreutils grep
 
@@ -787,14 +791,23 @@ rm -r storage/tokudb/mysql-test/tokudb/t/*.py
     fi
 %endif
 
-CFLAGS="%{optflags} -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE"
+CFLAGS="$CFLAGS -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE"
 # force PIC mode so that we can build libmysqld.so
 CFLAGS="$CFLAGS -fPIC"
-# Override all optimization flags when making a debug build
-%{?with_debug: CFLAGS="$CFLAGS -O0 -g"}
 
+# Override all optimization flags when making a debug build
+%if %{with debug}
+CFLAGS="$CFLAGS -O0 -g
+CPPFLAGS="$CPPFLAGS -O0 -g -D_FORTIFY_SOURCE=0
+# Fix GCC flags broken by MariaDB upstream
+CFLAGS="$CFLAGS      -Wno-error=deprecated-copy -Wno-error=pessimizing-move -Wno-error=unused-result -Wno-error=maybe-uninitialized -Wno-error=stringop-overflow -Wno-error=sign-compare
 CXXFLAGS="$CFLAGS"
-export CFLAGS CXXFLAGS
+CPPFLAGS="$CPPFLAGS  -Wno-error=deprecated-copy -Wno-error=pessimizing-move -Wno-error=unused-result -Wno-error=maybe-uninitialized -Wno-error=stringop-overflow -Wno-error=sign-compare
+%endif
+
+
+
+export CFLAGS CXXFLAGS CPPFLAGS
 
 
 # The INSTALL_xxx macros have to be specified relative to CMAKE_INSTALL_PREFIX
@@ -876,12 +889,6 @@ make -f /usr/share/selinux/devel/Makefile %{name}-server-galera.pp
 
 %install
 make DESTDIR=%{buildroot} install
-
-%if %{with galera}
-# Install the wsrep library
-install -D -p -m 0755 wsrep-lib/wsrep-API/libwsrep_api_v*.so %{buildroot}%{_libdir}
-install -D -p -m 0755 wsrep-lib/src/libwsrep-lib.so %{buildroot}%{_libdir}
-%endif
 
 # multilib header support #1625157
 for header in mysql/server/my_config.h mysql/server/private/config.h; do
@@ -1268,11 +1275,8 @@ fi
 
 %endif
 
-%if %{with clibrary} || %{with galera}
+%if %{with clibrary}
 %files libs
-%if %{with galera}
-%{_libdir}/libwsrep*.so*
-%endif
 %if %{with clibrary}
 %exclude %{_libdir}/{libmysqlclient.so.18,libmariadb.so,libmysqlclient.so,libmysqlclient_r.so}
 %{_libdir}/libmariadb.so*
@@ -1599,6 +1603,10 @@ fi
 %endif
 
 %changelog
+* Tue Dec 03 2019 Michal Schorm <mschorm@redhat.com> - 3:10.4.10-1
+- Rebase to 10.4.10
+  Upstream started linking the Galera libraries statically
+
 * Wed Sep 25 2019 Michal Schorm <mschorm@redhat.com> - 3:10.4.7-2
 - Disable building of the ed25519 client plugin.
   From now on it will be shipped by 'mariadb-connector-c' package
