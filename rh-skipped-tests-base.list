@@ -50,4 +50,10 @@ innodb_gis.rtree_compress2                   :
 parts.partition_alter4_innodb                :
 
 # Fails from 10.3.9
-encryption.innodb-redo-badkey :
+encryption.innodb-redo-badkey                :
+
+# Expected: Plugin building disabled in server
+plugins.auth_ed25519                         :
+
+# Fails from 10.4.10
+sys_vars.tcp_nodelay                         :

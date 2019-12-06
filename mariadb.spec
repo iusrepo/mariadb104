@@ -158,7 +158,7 @@
 
 Name:             mariadb
 Version:          10.4.10
-Release:          1%{?with_debug:.debug}%{?dist}
+Release:          1.20191205git9a621200%{?with_debug:.debug}%{?dist}
 Epoch:            3
 
 Summary:          A very fast and robust SQL database server
@@ -266,7 +266,7 @@ Requires:         bash coreutils grep
 
 Requires:         %{name}-common%{?_isa} = %{sameevr}
 
-%if %{with clibrary} || %{with galera}
+%if %{with clibrary}
 # Explicit EVR requirement for -libs is needed for RHBZ#1406320
 Requires:         %{name}-libs%{?_isa} = %{sameevr}
 %else
@@ -304,7 +304,7 @@ The base package contains the standard MariaDB/MySQL client programs and
 generic MySQL files.
 
 
-%if %{with clibrary} || %{with galera}
+%if %{with clibrary}
 %package          libs
 Summary:          The shared libraries required for MariaDB/MySQL clients
 Requires:         %{name}-common%{?_isa} = %{sameevr}
@@ -350,7 +350,7 @@ Requires:         %{_sysconfdir}/my.cnf
 # obsoletion of mariadb-galera-common
 Provides: mariadb-galera-common = %{sameevr}
 
-%if %{without clibrary} && %{without galera}
+%if %{without clibrary}
 Obsoletes: %{name}-libs <= %{sameevr}
 %endif
 
@@ -377,7 +377,7 @@ MariaDB packages.
 Summary:          The configuration files and scripts for galera replication
 Requires:         %{name}-common%{?_isa} = %{sameevr}
 Requires:         %{name}-server%{?_isa} = %{sameevr}
-Requires:         galera >= 25.3.3
+Requires:         galera >= 26.4.3
 Requires(post):   libselinux-utils
 Requires(post):   policycoreutils-python-utils
 # wsrep requirements
@@ -595,7 +595,7 @@ the only MariaDB sub-package, except test subpackage, that depends on Perl.
 %package          devel
 Summary:          Files for development of MariaDB/MySQL applications
 Requires:         openssl-devel
-%if %{with clibrary} || %{with galera}
+%if %{with clibrary}
 Requires:         %{name}-libs%{?_isa} = %{sameevr}
 %else
 Requires:         mariadb-connector-c-devel >= 3.0
@@ -921,7 +921,6 @@ rm %{buildroot}%{_libdir}/pkgconfig/libmariadb.pc
 # but that's pretty wacko --- see also %%{name}-file-contents.patch)
 install -p -m 644 Docs/INFO_SRC %{buildroot}%{_libdir}/%{pkg_name}/
 install -p -m 644 Docs/INFO_BIN %{buildroot}%{_libdir}/%{pkg_name}/
-rm -r %{buildroot}%{_datadir}/doc/%{_pkgdocdirname}/MariaDB-server-%{version}/
 
 # Logfile creation
 mkdir -p %{buildroot}%{logfiledir}
