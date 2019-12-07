@@ -286,9 +286,6 @@ Suggests:         %{name}-server%{?_isa} = %{sameevr}
 # MySQL (with caps) is upstream's spelling of their own RPMs for mysql
 %{?with_conflicts:Conflicts:        community-mysql}
 
-# obsoletion of mariadb-galera
-Provides: mariadb-galera = %{sameevr}
-
 # Filtering: https://fedoraproject.org/wiki/Packaging:AutoProvidesAndRequiresFiltering
 %global __requires_exclude ^perl\\((hostnames|lib::mtr|lib::v1|mtr_|My::)
 %global __provides_exclude_from ^(%{_datadir}/(mysql|mysql-test)/.*|%{_libdir}/%{pkg_name}/plugin/.*\\.so)$
@@ -347,9 +344,6 @@ package itself.
 Summary:          The shared files required by server and client
 Requires:         %{_sysconfdir}/my.cnf
 
-# obsoletion of mariadb-galera-common
-Provides: mariadb-galera-common = %{sameevr}
-
 %if %{without clibrary}
 Obsoletes: %{name}-libs <= %{sameevr}
 %endif
@@ -384,9 +378,6 @@ Requires(post):   policycoreutils-python-utils
 Requires:         lsof
 # Default wsrep_sst_method
 Requires:         rsync
-
-# obsoletion of mariadb-galera-server
-Provides: mariadb-galera-server = %{sameevr}
 
 %description      server-galera
 MariaDB is a multi-user, multi-threaded SQL database server. It is a
