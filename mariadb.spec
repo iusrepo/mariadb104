@@ -1232,11 +1232,16 @@ export MTR_BUILD_THREAD=%{__isa_bits}
 
 %if %{with galera}
 %post server-galera
-# Do what README at support-files/policy/selinux/README and upstream page
-# http://galeracluster.com/documentation-webpages/firewallsettings.html recommend:
-semanage port -a -t mysqld_port_t -p tcp 4568 >/dev/null 2>&1 || :
+# Allow ports needed for the replication:
+# https://mariadb.com/kb/en/library/configuring-mariadb-galera-cluster/#network-ports
+#   Galera Replication Port
 semanage port -a -t mysqld_port_t -p tcp 4567 >/dev/null 2>&1 || :
 semanage port -a -t mysqld_port_t -p udp 4567 >/dev/null 2>&1 || :
+#   IST Port
+semanage port -a -t mysqld_port_t -p tcp 4568 >/dev/null 2>&1 || :
+#   SST Port
+semanage port -a -t mysqld_port_t -p tcp 4444 >/dev/null 2>&1 || :
+
 semodule -i %{_datadir}/selinux/packages/%{name}/%{name}-server-galera.pp >/dev/null 2>&1 || :
 %endif
 
