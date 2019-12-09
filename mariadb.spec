@@ -6,7 +6,7 @@
 %{!?runselftest:%global runselftest 1}
 
 # Set this to 1 to see which tests fail, but 0 on production ready build
-%global ignore_testsuite_result 1
+%global ignore_testsuite_result 0
 
 # The last version on which the full testsuite has been run
 # In case of further rebuilds of that version, don't require full testsuite to be run

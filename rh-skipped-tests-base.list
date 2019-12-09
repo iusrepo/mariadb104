@@ -57,3 +57,7 @@ plugins.auth_ed25519                         :
 
 # Fails from 10.4.10
 sys_vars.tcp_nodelay                         :
+# only on i686
+main.key_cache                               :
+parts.optimizer                              :
+main.opt_trace_index_merge                   :
