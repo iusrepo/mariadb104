@@ -1022,7 +1022,10 @@ unlink %{buildroot}%{_libdir}/libmysqlclient.so
 unlink %{buildroot}%{_libdir}/libmysqlclient_r.so
 unlink %{buildroot}%{_libdir}/libmariadb.so
 # Client plugins
-rm %{buildroot}%{_libdir}/%{pkg_name}/plugin/{dialog.so,mysql_clear_password.so,sha256_password.so,auth_gssapi_client.so}
+rm %{buildroot}%{_libdir}/%{pkg_name}/plugin/{dialog.so,mysql_clear_password.so,sha256_password.so}
+%if %{with gssapi}
+rm %{buildroot}%{_libdir}/%{pkg_name}/plugin/auth_gssapi_client.so
+%endif
 %endif
 
 %if %{without clibrary} || %{without devel}
@@ -1079,10 +1082,6 @@ rm %{buildroot}%{_sysconfdir}/my.cnf
 
 %if %{without common}
 rm -r %{buildroot}%{_datadir}/%{pkg_name}/charsets
-%endif
-
-%if %{without gssapi}
-rm -r %{buildroot}/etc/my.cnf.d/auth_gssapi.cnf
 %endif
 
 %if %{without errmsg}
