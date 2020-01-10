@@ -152,7 +152,7 @@
 %global sameevr   %{epoch}:%{version}-%{release}
 
 Name:             mariadb
-Version:          10.3.20
+Version:          10.3.21
 Release:          3%{?with_debug:.debug}%{?dist}
 Epoch:            3
 
@@ -473,6 +473,9 @@ standard SQL syntax, and results joined onto other tables.
 %package          connect-engine
 Summary:          The CONNECT storage engine for MariaDB
 Requires:         %{name}-server%{?_isa} = %{sameevr}
+
+# As per https://jira.mariadb.org/browse/MDEV-21450
+BuildRequires:    libxml2-devel
 
 %description      connect-engine
 The CONNECT storage engine enables MariaDB to access external local or
@@ -1579,6 +1582,9 @@ fi
 %endif
 
 %changelog
+* Fri Jan 10 2020 Michal Schorm <mschorm@redhat.com> - 10.3.21-1
+- Rebase to 10.3.21
+
 * Mon Nov 18 2019 Lukas Javorsky <ljavorsk@redhat.com> - 10.3.20-3
 - Change path of groonga's packaged files
 - Fix bz#1763287
