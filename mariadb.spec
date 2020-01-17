@@ -197,8 +197,10 @@ Patch11:          %{pkgnamepatch}-pcdir.patch
 Patch13:          %{pkgnamepatch}-spider_on_armv7hl.patch
 #   Patch14: Remove the '-Werror' flag so the debug build won't crash on random warnings
 Patch14:          %{pkgnamepatch}-debug_build.patch
-# Patch15:  Add option to edit groonga's and groonga-normalizer-mysql install path
+#   Patch15:  Add option to edit groonga's and groonga-normalizer-mysql install path
 Patch15:          %{pkgnamepatch}-groonga.patch
+#   Patch16: Workaround for "chown 0" with priviledges dropped to "mysql" user
+Patch16:          %{pkgnamepatch}-auth_pam_tool_dir.patch
 
 BuildRequires:    cmake gcc-c++
 BuildRequires:    multilib-rpm-config
@@ -252,6 +254,10 @@ BuildRequires:    perl(Time::HiRes)
 BuildRequires:    perl(Symbol)
 # for running some openssl tests rhbz#1189180
 BuildRequires:    openssl openssl-devel
+
+%if %{with debug}
+BuildRequires:    valgrind-devel
+%endif
 
 Requires:         bash coreutils grep
 
@@ -335,8 +341,6 @@ package itself.
 Summary:          The shared files required by server and client
 Requires:         %{_sysconfdir}/my.cnf
 
-# obsoletion of mariadb-galera-common
-Provides: mariadb-galera-common = %{sameevr}
 
 %if %{without clibrary}
 Obsoletes: %{name}-libs <= %{sameevr}
@@ -372,9 +376,6 @@ Requires(post):   policycoreutils-python-utils
 Requires:         lsof
 # Default wsrep_sst_method
 Requires:         rsync
-
-# obsoletion of mariadb-galera-server
-Provides: mariadb-galera-server = %{sameevr}
 
 %description      server-galera
 MariaDB is a multi-user, multi-threaded SQL database server. It is a
@@ -685,6 +686,7 @@ find . -name "*.jar" -type f -exec rm --verbose -f {} \;
 %patch13 -p1
 %patch14 -p1
 %patch15 -p1
+%patch16 -p1
 
 # workaround for upstream bug #56342
 #rm mysql-test/t/ssl_8k_key-master.opt
@@ -759,9 +761,17 @@ rm -r storage/tokudb/mysql-test/tokudb/t/*.py
 %endif
 
 CFLAGS="$CFLAGS -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE"
+# force PIC mode so that we can build libmysqld.so
+CFLAGS="$CFLAGS -fPIC"
 
+%if %{with debug}
 # Override all optimization flags when making a debug build
-%{?with_debug: CFLAGS="$CFLAGS -O0 -g"}
+CFLAGS="$CFLAGS -O0 -g"
+CPPFLAGS="$CPPFLAGS -O0 -g -D_FORTIFY_SOURCE=0"
+# Fix GCC flags broken by MariaDB upstream
+CFLAGS="$CFLAGS      -Wno-error=deprecated-copy -Wno-error=pessimizing-move -Wno-error=unused-result -Wno-error=maybe-uninitialized -Wno-error=stringop-overflow -Wno-error=sign-compare"
+CPPFLAGS="$CPPFLAGS  -Wno-error=deprecated-copy -Wno-error=pessimizing-move -Wno-error=unused-result -Wno-error=maybe-uninitialized -Wno-error=stringop-overflow -Wno-error=sign-compare"
+%endif
 
 CXXFLAGS="$CFLAGS"
 CPPFLAGS="$CFLAGS"
@@ -969,8 +979,10 @@ install -p -m 0644 %{SOURCE16} %{basename:%{SOURCE16}}
 install -p -m 0644 %{SOURCE71} %{basename:%{SOURCE71}}
 
 # install galera config file
+%if %{with galera}
 sed -i -r 's|^wsrep_provider=none|wsrep_provider=%{_libdir}/galera/libgalera_smm.so|' support-files/wsrep.cnf
 install -p -m 0644 support-files/wsrep.cnf %{buildroot}%{_sysconfdir}/my.cnf.d/galera.cnf
+%endif
 # install the clustercheck script
 mkdir -p %{buildroot}%{_sysconfdir}/sysconfig
 touch %{buildroot}%{_sysconfdir}/sysconfig/clustercheck
@@ -1173,11 +1185,16 @@ export MTR_BUILD_THREAD=%{__isa_bits}
 
 %if %{with galera}
 %post server-galera
-# Do what README at support-files/policy/selinux/README and upstream page
-# http://galeracluster.com/documentation-webpages/firewallsettings.html recommend:
-semanage port -a -t mysqld_port_t -p tcp 4568 >/dev/null 2>&1 || :
+# Allow ports needed for the replication:
+# https://mariadb.com/kb/en/library/configuring-mariadb-galera-cluster/#network-ports
+#   Galera Replication Port
 semanage port -a -t mysqld_port_t -p tcp 4567 >/dev/null 2>&1 || :
 semanage port -a -t mysqld_port_t -p udp 4567 >/dev/null 2>&1 || :
+#   IST Port
+semanage port -a -t mysqld_port_t -p tcp 4568 >/dev/null 2>&1 || :
+#   SST Port
+semanage port -a -t mysqld_port_t -p tcp 4444 >/dev/null 2>&1 || :
+
 semodule -i %{_datadir}/selinux/packages/%{name}/%{name}-server-galera.pp >/dev/null 2>&1 || :
 %endif
 
@@ -1317,6 +1334,8 @@ fi
 
 %dir %{_libdir}/%{pkg_name}
 %dir %{_libdir}/%{pkg_name}/plugin
+# Change from root:root to mysql:mysql, so it can be accessed by the server
+%attr(0755,mysql,mysql) %dir %{_libdir}/%{pkg_name}/plugin/auth_pam_tool_dir
 %{_libdir}/%{pkg_name}/plugin/*
 %{?with_oqgraph:%exclude %{_libdir}/%{pkg_name}/plugin/ha_oqgraph.so}
 %{?with_connect:%exclude %{_libdir}/%{pkg_name}/plugin/ha_connect.so}
@@ -1373,7 +1392,9 @@ fi
 %doc %{_datadir}/%{name}-server/groonga-normalizer-mysql/README.md
 %doc %{_datadir}/%{name}-server/groonga/README.md
 %endif
+%if %{with galera}
 %{_datadir}/%{pkg_name}/wsrep.cnf
+%endif
 %{_datadir}/%{pkg_name}/wsrep_notify
 %dir %{_datadir}/%{pkg_name}/policy
 %dir %{_datadir}/%{pkg_name}/policy/selinux
@@ -1531,6 +1552,10 @@ fi
 - Rebase to 10.4.11
   Related: #1756468
 - Remove 'bench' subpackage. Upstream no longer maintains it.
+- Use Valgrind for debug builds
+- Remove ancient obsoletions
+- Tweak build flags
+- Add patch for auth_pam_tool directory
 
 * Fri Jan 10 2020 Michal Schorm <mschorm@redhat.com> - 10.3.21-1
 - Rebase to 10.3.21
