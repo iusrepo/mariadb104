@@ -80,12 +80,6 @@
 %bcond_without test
 %bcond_without galera
 %bcond_without backup
-# Upstream no longer maintain and pack the bench subpackage
-%if 0%{?fedora}
-%bcond_without bench
-%else
-%bcond_with bench
-%endif
 
 # When there is already another package that ships /etc/my.cnf,
 # rather include it than ship the file again, since conflicts between
@@ -445,6 +439,9 @@ Provides:         mysql-compat-server%{?_isa} = %{sameevr}
 %endif
 %{?with_conflicts:Conflicts:        community-mysql-server}
 
+# Bench subpackage has been deprecated in F32
+Obsoletes: %{name}-bench <= %{sameevr}
+
 %description      server
 MariaDB is a multi-user, multi-threaded SQL database server. It is a
 client/server implementation consisting of a server daemon (mysqld)
@@ -642,24 +639,6 @@ the embedded version of the MariaDB server.
 %endif
 
 
-%if %{with bench}
-%package          bench
-Summary:          MariaDB benchmark scripts and data
-Requires:         %{name}%{?_isa} = %{sameevr}
-%if %{with mysql_names}
-Provides:         mysql-bench = %{sameevr}
-Provides:         mysql-bench%{?_isa} = %{sameevr}
-%endif
-%{?with_conflicts:Conflicts:        community-mysql-bench}
-
-%description      bench
-MariaDB is a multi-user, multi-threaded SQL database server.
-MariaDB is a community developed branch of MySQL.
-This package contains benchmark scripts and data for use when benchmarking
-MariaDB.
-%endif
-
-
 %if %{with test}
 %package          test
 Summary:          The test suite distributed with MariaDB
@@ -815,7 +794,6 @@ export CFLAGS CXXFLAGS CPPFLAGS
          -DINSTALL_PLUGINDIR="%{_lib}/%{pkg_name}/plugin" \
          -DINSTALL_SBINDIR=libexec \
          -DINSTALL_SCRIPTDIR=bin \
-         -DINSTALL_SQLBENCHDIR=share \
          -DINSTALL_SUPPORTFILESDIR=share/%{pkg_name} \
          -DINSTALL_PCDIR=%{_lib}/pkgconfig \
          -DMYSQL_DATADIR="%{dbdatadir}" \
@@ -1117,13 +1095,6 @@ rm %{buildroot}%{_sysconfdir}/sysconfig/clustercheck
 rm %{buildroot}%{_bindir}/{clustercheck,galera_new_cluster}
 rm %{buildroot}%{_bindir}/galera_recovery
 rm %{buildroot}%{_datadir}/%{pkg_name}/systemd/use_galera_new_cluster.conf
-%endif
-
-%if %{without bench}
-rm -r %{buildroot}%{_datadir}/sql-bench
-%else
-# script without shebang: https://jira.mariadb.org/browse/MDEV-14266
-chmod -x %{buildroot}%{_datadir}/sql-bench/myisam.cnf
 %endif
 
 %if %{without rocksdb}
@@ -1536,12 +1507,6 @@ fi
 %{_libdir}/libmariadbd.so
 %endif
 
-%if %{with bench}
-%files bench
-%{_datadir}/sql-bench
-%doc %{_datadir}/sql-bench/README
-%endif
-
 %if %{with test}
 %files test
 %if %{with embedded}
@@ -1565,6 +1530,7 @@ fi
 * Fri Jan 17 2020 Michal Schorm <mschorm@redhat.com> - 10.4.11-1
 - Rebase to 10.4.11
   Related: #1756468
+- Remove 'bench' subpackage. Upstream no longer maintains it.
 
 * Fri Jan 10 2020 Michal Schorm <mschorm@redhat.com> - 10.3.21-1
 - Rebase to 10.3.21
