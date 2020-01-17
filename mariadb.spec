@@ -922,7 +922,6 @@ mv %{buildroot}%{_sysconfdir}/my.cnf.d/server.cnf %{buildroot}%{_sysconfdir}/my.
 mv %{buildroot}%{_sysusersdir}/sysusers.conf %{buildroot}%{_sysusersdir}/%{name}.conf
 
 # remove SysV init script and a symlink to that, we use systemd
-rm %{buildroot}%{_sysconfdir}/init.d/mysql
 rm %{buildroot}%{_libexecdir}/rcmysql
 # install systemd unit files and scripts for handling server startup
 install -D -p -m 644 scripts/mysql.service %{buildroot}%{_unitdir}/%{daemon_name}.service
@@ -957,8 +956,8 @@ ln -s unstable-tests %{buildroot}%{_datadir}/mysql-test/rh-skipped-tests.list
 
 # Client that uses libmysqld embedded server.
 # Pretty much like normal mysql command line client, but it doesn't require a running mariadb server.
-%{?with_embedded:rm %{buildroot}%{_bindir}/mysql_embedded}
-rm %{buildroot}%{_mandir}/man1/mysql_embedded.1*
+%{?with_embedded:rm %{buildroot}%{_bindir}/{mariadb-,mysql_}embedded}
+rm %{buildroot}%{_mandir}/man1/{mysql_,mariadb-}embedded.1*
 # Static libraries
 rm %{buildroot}%{_libdir}/*.a
 # This script creates the MySQL system tables and starts the server.
@@ -1014,6 +1013,7 @@ sed -i 's/^plugin-load-add/#plugin-load-add/' %{buildroot}%{_sysconfdir}/my.cnf.
 
 %if %{without embedded}
 rm %{buildroot}%{_mandir}/man1/{mysql_client_test_embedded,mysqltest_embedded}.1*
+rm %{buildroot}%{_mandir}/man1/{mariadb-client-test-embedded,mariadb-test-embedded}.1*
 %endif
 
 
@@ -1058,13 +1058,15 @@ unlink %{buildroot}%{_libdir}/libmysqlclient_r.so
 %endif
 
 %if %{without client}
-rm %{buildroot}%{_bindir}/{msql2mysql,mysql,mysql_find_rows,\
-mysql_plugin,mysql_waitpid,mysqlaccess,mysqladmin,mysqlbinlog,mysqlcheck,\
-mysqldump,mysqlimport,mysqlshow,mysqlslap}
-rm %{buildroot}%{_mandir}/man1/{msql2mysql,mysql,mysql_find_rows,\
-mysql_plugin,mysql_waitpid,mysqlaccess,mysqladmin,mysqlbinlog,mysqlcheck,\
-mysqldump,mysqlimport,mysqlshow,mysqlslap}.1*
-rm %{buildroot}%{_sysconfdir}/my.cnf.d/mysql-clients.cnf
+rm %{buildroot}%{_bindir}/msql2mysql
+rm %{buildroot}%{_bindir}/{mysql,mariadb}
+rm %{buildroot}%{_bindir}/mysql{access,admin,binlog,check,dump,_find_rows,import,_plugin,show,slap,_waitpid}
+rm %{buildroot}%{_bindir}/mariadb-{access,admin,binlog,check,dump,find-rows,import,plugin,show,slap,waitpid}
+
+rm %{buildroot}%{_mandir}/man1/msql2mysql.1*
+rm %{buildroot}%{_mandir}/man1/{mysql,mariadb}.1*
+rm %{buildroot}%{_mandir}/man1/mysql{access,admin,binlog,check,dump,_find_rows,import,_plugin,show,slap,_waitpid}.1*
+rm %{buildroot}%{_mandir}/man1/mariadb-{access,admin,binlog,check,dump,find-rows,import,plugin,show,slap,waitpid}.1*
 %endif
 
 %if %{without tokudb}
@@ -1096,12 +1098,16 @@ polish,portuguese,romanian,russian,serbian,slovak,spanish,swedish,ukrainian,hind
 
 %if %{without test}
 %if %{with embedded}
-rm %{buildroot}%{_bindir}/{mysqltest_embedded,mysql_client_test_embedded}
-rm %{buildroot}%{_mandir}/man1/{mysqltest_embedded,mysql_client_test_embedded}.1*
-%endif
+rm %{buildroot}%{_bindir}/{mysql_client_test_embedded,mysqltest_embedded}
+rm %{buildroot}%{_bindir}/{mariadb-client-test-embedded,mariadb-test-embedded}
+rm %{buildroot}%{_mandir}/man1/{mysql_client_test_embedded,mysqltest_embedded}.1*
+rm %{buildroot}%{_mandir}/man1/{mariadb-client-test-embedded,mariadb-test-embedded}.1*
+%endif # embedded
 rm %{buildroot}%{_bindir}/test-connect-t
 rm %{buildroot}%{_bindir}/{mysql_client_test,mysqltest}
-rm %{buildroot}%{_mandir}/man1/{mysql_client_test,my_safe_process,mysqltest}.1*
+rm %{buildroot}%{_bindir}/{mariadb-client-test,mariadb-test}
+rm %{buildroot}%{_mandir}/man1/{mysql_client_test,mysqltest,my_safe_process}.1*
+rm %{buildroot}%{_mandir}/man1/{mariadb-client-test,mariadb-test}.1*
 rm %{buildroot}%{_mandir}/man1/{mysql-test-run,mysql-stress-test}.pl.1*
 %endif
 
@@ -1121,7 +1127,7 @@ chmod -x %{buildroot}%{_datadir}/sql-bench/myisam.cnf
 %endif
 
 %if %{without rocksdb}
-rm %{buildroot}%{_mandir}/man1/mysql_ldb.1*
+rm %{buildroot}%{_mandir}/man1/{mysql_,mariadb-}ldb.1*
 %endif
 
 %check
@@ -1225,38 +1231,22 @@ fi
 %if %{with client}
 %files
 %{_bindir}/msql2mysql
-%{_bindir}/mysql
-%{_bindir}/mysql_find_rows
-%{_bindir}/mysql_plugin
-%{_bindir}/mysql_waitpid
-%{_bindir}/mysqlaccess
-%{_bindir}/mysqladmin
-%{_bindir}/mysqlbinlog
-%{_bindir}/mysqlcheck
-%{_bindir}/mysqldump
-%{_bindir}/mysqlimport
-%{_bindir}/mysqlshow
-%{_bindir}/mysqlslap
+%{_bindir}/{mysql,mariadb}
+%{_bindir}/mysql{access,admin,binlog,check,dump,_find_rows,import,_plugin,show,slap,_waitpid}
+%{_bindir}/mariadb-{access,admin,binlog,check,dump,find-rows,import,plugin,show,slap,waitpid}
 
 %{_mandir}/man1/msql2mysql.1*
-%{_mandir}/man1/mysql.1*
-%{_mandir}/man1/mysql_find_rows.1*
-%{_mandir}/man1/mysql_plugin.1*
-%{_mandir}/man1/mysql_waitpid.1*
-%{_mandir}/man1/mysqlaccess.1*
-%{_mandir}/man1/mysqladmin.1*
-%{_mandir}/man1/mysqlbinlog.1*
-%{_mandir}/man1/mysqlcheck.1*
-%{_mandir}/man1/mysqldump.1*
-%{_mandir}/man1/mysqlimport.1*
-%{_mandir}/man1/mysqlshow.1*
-%{_mandir}/man1/mysqlslap.1*
+%{_mandir}/man1/{mysql,mariadb}.1*
+%{_mandir}/man1/mysql{access,admin,binlog,check,dump,_find_rows,import,_plugin,show,slap,_waitpid}.1*
+%{_mandir}/man1/mariadb-{access,admin,binlog,check,dump,find-rows,import,plugin,show,slap,waitpid}.1*
+
 %config(noreplace) %{_sysconfdir}/my.cnf.d/mysql-clients.cnf
 %endif
 
 %if %{with clibrary}
 %files libs
-%{_libdir}/libmariadb.so.*
+%exclude %{_libdir}/{libmysqlclient.so.18,libmariadb.so,libmysqlclient.so,libmysqlclient_r.so}
+%{_libdir}/libmariadb.so*
 %config(noreplace) %{_sysconfdir}/my.cnf.d/client.cnf
 %endif
 
@@ -1324,22 +1314,18 @@ fi
 %files server
 %doc README.mysql-cnf
 
-%{_bindir}/aria_chk
-%{_bindir}/aria_dump_log
-%{_bindir}/aria_ftdump
-%{_bindir}/aria_pack
-%{_bindir}/aria_read_log
+%{_bindir}/aria_{chk,dump_log,ftdump,pack,read_log}
 %{_bindir}/mariadb-service-convert
 %{_bindir}/myisamchk
 %{_bindir}/myisam_ftdump
 %{_bindir}/myisamlog
 %{_bindir}/myisampack
 %{_bindir}/my_print_defaults
-%{_bindir}/mysql_install_db
-%{_bindir}/mysql_secure_installation
-%{_bindir}/mysql_tzinfo_to_sql
-%{_bindir}/mysqld_safe
-%{_bindir}/mysqld_safe_helper
+
+%{_bindir}/mysql_{install_db,secure_installation,tzinfo_to_sql}
+%{_bindir}/mariadb-{install-db,secure-installation,tzinfo-to-sql}
+%{_bindir}/{mysqld_,mariadbd-}safe
+
 %{_bindir}/innochecksum
 %{_bindir}/replace
 %{_bindir}/resolve_stack_dump
@@ -1350,7 +1336,7 @@ fi
 %config(noreplace) %{_sysconfdir}/my.cnf.d/%{pkg_name}-server.cnf
 %config(noreplace) %{_sysconfdir}/my.cnf.d/enable_encryption.preset
 
-%{_libexecdir}/mysqld
+%{_libexecdir}/{mysqld,mariadbd}
 
 %{_libdir}/%{pkg_name}/INFO_SRC
 %{_libdir}/%{pkg_name}/INFO_BIN
@@ -1373,11 +1359,7 @@ fi
 %exclude %{_libdir}/%{pkg_name}/plugin/mysql_clear_password.so
 %endif
 
-%{_mandir}/man1/aria_chk.1*
-%{_mandir}/man1/aria_dump_log.1*
-%{_mandir}/man1/aria_ftdump.1*
-%{_mandir}/man1/aria_pack.1*
-%{_mandir}/man1/aria_read_log.1*
+%{_mandir}/man1/aria_{chk,dump_log,ftdump,pack,read_log}.1*
 %{_mandir}/man1/galera_new_cluster.1*
 %{_mandir}/man1/galera_recovery.1*
 %{_mandir}/man1/mariadb-service-convert.1*
@@ -1386,18 +1368,19 @@ fi
 %{_mandir}/man1/myisampack.1*
 %{_mandir}/man1/myisam_ftdump.1*
 %{_mandir}/man1/my_print_defaults.1*
-%{_mandir}/man1/mysql.server.1*
-%{_mandir}/man1/mysql_install_db.1*
-%{_mandir}/man1/mysql_secure_installation.1*
-%{_mandir}/man1/mysql_tzinfo_to_sql.1*
-%{_mandir}/man1/mysqld_safe.1*
-%{_mandir}/man1/mysqld_safe_helper.1*
+
+%{_mandir}/man1/mysql_{install_db,secure_installation,tzinfo_to_sql}.1*
+%{_mandir}/man1/mariadb-{install-db,secure-installation,tzinfo-to-sql}.1*
+%{_mandir}/man1/{mysqld_,mariadbd-}safe.1*
+
 %{_mandir}/man1/innochecksum.1*
 %{_mandir}/man1/replace.1*
 %{_mandir}/man1/resolveip.1*
 %{_mandir}/man1/resolve_stack_dump.1*
-%{_mandir}/man8/mysqld.8*
+%{_mandir}/man8/{mysqld,mariadbd}.8*
 %{_mandir}/man1/wsrep_*.1*
+
+%{_mandir}/man1/mysql.server.1*
 
 %{_datadir}/%{pkg_name}/fill_help_tables.sql
 %{_datadir}/%{pkg_name}/install_spider.sql
@@ -1459,9 +1442,9 @@ fi
 
 %if %{with backup}
 %files backup
-%{_bindir}/mariabackup
+%{_bindir}/maria{,db-}backup
 %{_bindir}/mbstream
-%{_mandir}/man1/mariabackup.1*
+%{_mandir}/man1/maria{,db-}backup.1*
 %{_mandir}/man1/mbstream.1*
 %endif
 
@@ -1469,10 +1452,10 @@ fi
 %files rocksdb-engine
 %config(noreplace) %{_sysconfdir}/my.cnf.d/rocksdb.cnf
 %{_bindir}/myrocks_hotbackup
-%{_bindir}/mysql_ldb
+%{_bindir}/{mysql_,mariadb-}ldb
 %{_bindir}/sst_dump
 %{_libdir}/%{pkg_name}/plugin/ha_rocksdb.so
-%{_mandir}/man1/mysql_ldb.1*
+%{_mandir}/man1/{mysql_,mariadb-}ldb.1*
 %endif
 
 %if %{with tokudb}
@@ -1511,29 +1494,27 @@ fi
 
 %files server-utils
 # Perl utilities
-%{_bindir}/mysql_convert_table_format
-%{_bindir}/mysql_fix_extensions
-%{_bindir}/mysql_setpermission
-%{_bindir}/mysqldumpslow
-%{_bindir}/mysqld_multi
-%{_bindir}/mysqlhotcopy
-%{_mandir}/man1/mysql_convert_table_format.1*
-%{_mandir}/man1/mysql_fix_extensions.1*
-%{_mandir}/man1/mysqldumpslow.1*
-%{_mandir}/man1/mysqld_multi.1*
-%{_mandir}/man1/mysqlhotcopy.1*
-%{_mandir}/man1/mysql_setpermission.1*
+%{_bindir}/mysql{_convert_table_format,dumpslow,_fix_extensions,hotcopy,_setpermission}
+%{_bindir}/mariadb-{convert-table-format,dumpslow,fix-extensions,hotcopy,setpermission}
+%{_bindir}/{mysqld_,mariadbd-}multi
+
+%{_mandir}/man1/mysql{_convert_table_format,dumpslow,_fix_extensions,hotcopy,_setpermission}.1*
+%{_mandir}/man1/mariadb-{convert-table-format,dumpslow,fix-extensions,hotcopy,setpermission}.1*
+%{_mandir}/man1/{mysqld_,mariadbd-}multi.1*
 # Utilities that can be used remotely
-%{_bindir}/mysql_upgrade
+%{_bindir}/{mysql_,mariadb-}upgrade
 %{_bindir}/perror
-%{_mandir}/man1/mysql_upgrade.1*
+%{_mandir}/man1/{mysql_,mariadb-}upgrade.1*
 %{_mandir}/man1/perror.1*
+# Other utilities
+%{_bindir}/{mysqld_safe_helper,mariadbd-safe-helper}
+%{_mandir}/man1/{mysqld_safe_helper,mariadbd-safe-helper}.1*
 
 %if %{with devel}
 %files devel
 %{_includedir}/*
 %{_datadir}/aclocal/mysql.m4
-%{_libdir}/pkgconfig/mariadb.pc
+%{_libdir}/pkgconfig/*mariadb.pc
 %if %{with clibrary}
 %{_libdir}/{libmysqlclient.so.18,libmariadb.so,libmysqlclient.so,libmysqlclient_r.so}
 %{_bindir}/mysql_config*
@@ -1565,18 +1546,17 @@ fi
 %files test
 %if %{with embedded}
 %{_bindir}/test-connect-t
-%{_bindir}/mysql_client_test_embedded
-%{_bindir}/mysqltest_embedded
-%{_mandir}/man1/mysql_client_test_embedded.1*
-%{_mandir}/man1/mysqltest_embedded.1*
+%{_bindir}/{mysql_client_test_embedded,mysqltest_embedded}
+%{_bindir}/{mariadb-client-test-embedded,mariadb-test-embedded}
+%{_mandir}/man1/{mysql_client_test_embedded,mysqltest_embedded}.1*
+%{_mandir}/man1/{mariadb-client-test-embedded,mariadb-test-embedded}.1*
 %endif
-%{_bindir}/mysql_client_test
+%{_bindir}/{mysql_client_test,mysqltest,mariadb-client-test,mariadb-test}
 %{_bindir}/my_safe_process
-%{_bindir}/mysqltest
 %attr(-,mysql,mysql) %{_datadir}/mysql-test
 %{_mandir}/man1/mysql_client_test.1*
+%{_mandir}/man1/{mysql_client_test,mysqltest,mariadb-client-test,mariadb-test}.1*
 %{_mandir}/man1/my_safe_process.1*
-%{_mandir}/man1/mysqltest.1*
 %{_mandir}/man1/mysql-stress-test.pl.1*
 %{_mandir}/man1/mysql-test-run.pl.1*
 %endif
