@@ -1001,6 +1001,13 @@ sed -i 's/^plugin-load-add/#plugin-load-add/' %{buildroot}%{_sysconfdir}/my.cnf.
 sed -i 's/^plugin-load-add/#plugin-load-add/' %{buildroot}%{_sysconfdir}/my.cnf.d/cracklib_password_check.cnf
 %endif
 
+# Fix Galera Replication config file
+#   The replication requires cluster address upon startup (which is end-user specific).
+#   Disable it entirely, rather than have it failing out-of-the-box.
+%if %{with galera}
+sed -i 's/^wsrep_on=1/wsrep_on=0/' %{buildroot}%{_sysconfdir}/my.cnf.d/galera.cnf
+%endif
+
 %if %{without embedded}
 rm %{buildroot}%{_mandir}/man1/{mysql_client_test_embedded,mysqltest_embedded}.1*
 rm %{buildroot}%{_mandir}/man1/{mariadb-client-test-embedded,mariadb-test-embedded}.1*
