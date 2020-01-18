@@ -4,10 +4,6 @@ main.ssl_7937                                : #1399847
 main.ssl_8k_key                              :
 main.ssl_crl                                 : #1399847
 
-perfschema.nesting                           : #1399847
-perfschema.socket_summary_by_instance_func   : #1399847
-perfschema.socket_summary_by_event_name_func :
-
 # ------------------------------
 # Tests that fails because of 'Self Signed Certificate in the Certificate Chain'
 perfschema.cnf_option                        :
@@ -19,23 +15,25 @@ rpl.rpl_row_img_eng_noblob                   :
 sys_vars.slave_parallel_threads_basic        :
 
 # ------------------------------
+# Expected to fail, the plugin is not build with server, but 'mariadb-connector-c' instead
+plugins.auth_ed25519                         :
+plugins.multiauth                            :
+
+# ------------------------------
+perfschema.nesting                           : #1399847
+perfschema.socket_summary_by_instance_func   : #1399847
+perfschema.socket_summary_by_event_name_func :
+
+# ------------------------------
 # Fails since 10.1.12
 innodb.innodb_defrag_binlog                  :
 
 # Fails everywhere since 10.2.15
 main.userstat				     :
 
-# Fails on x86_64 since 10.2.15
-rocksdb.bulk_load                            :
-rocksdb.bulk_load_rev_cf                     :
-rocksdb.bulk_load_rev_cf_and_data            :
-rocksdb.bulk_load_rev_data                   :
+# Fails everywhere since 10.4.11
+main.events_bugs                             :
+sys_vars.tcp_nodelay                         :
 
-# Fails everywhere from 10.3.16
-main.mysql                                   :
-
-# Fails everywhere from 10.3.17
-versioning.update-big                        :
-
-# Expected to fail, the plugin is not build with server, but 'mariadb-connector-c' instead
-plugins.auth_ed25519                        :
+# Fails on i686
+encryption.innodb-redo-badkey                :

@@ -1,26 +1,2 @@
-# Fails since 10.3.8, only on armv7hl
-versioning.auto_increment :
-versioning.commit_id      :
-versioning.delete         :
-versioning.foreign        :
-versioning.insert         :
-versioning.insert2        :
-versioning.select2        :
-versioning.update         :
-# Fails since 10.3.9, only on armv7hl
-versioning.alter          :
-versioning.replace        :
-versioning.select         :
-versioning.truncate       :
-versioning.trx_id         :
 # Fails since 10.3.17, only on armv7hl
-versioning.online         :
 versioning.partition      :
-versioning.replace        :
-
-
-# Fails since 10.3.9, only on armv7hl
-federated.federatedx_versioning :
-
-# Fails from 10.3.17 only on armv7hl
-mariabackup.system_versioning   :

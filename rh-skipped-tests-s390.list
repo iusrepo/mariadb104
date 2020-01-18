@@ -1,6 +1,4 @@
 # Fails since 10.2.15
 disks.disks                    :
-# Fails since 10.3.17
-disks.disks_notemysql-test-run :
-innodb.innodb_defrag_binlog    :
-innodb.trx_id_future           :
+# Fails since 10.4.11
+disks.disks_notembedded        :
