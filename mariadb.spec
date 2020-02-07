@@ -146,8 +146,8 @@
 %global sameevr   %{epoch}:%{version}-%{release}
 
 Name:             mariadb
-Version:          10.4.11
-Release:          2%{?with_debug:.debug}%{?dist}
+Version:          10.4.12
+Release:          1%{?with_debug:.debug}%{?dist}
 Epoch:            3
 
 Summary:          A very fast and robust SQL database server
@@ -993,6 +993,8 @@ rm %{buildroot}%{logrotateddir}/mysql
 # Remove AppArmor files
 rm -r %{buildroot}%{_datadir}/%{pkg_name}/policy/apparmor
 
+mv %{buildroot}/lib/security %{buildroot}%{_libdir}
+
 # Disable plugins
 %if %{with gssapi}
 sed -i 's/^plugin-load-add/#plugin-load-add/' %{buildroot}%{_sysconfdir}/my.cnf.d/auth_gssapi.cnf
@@ -1343,6 +1345,8 @@ fi
 %dir %{_libdir}/%{pkg_name}/plugin
 # Change from root:root to mysql:mysql, so it can be accessed by the server
 %attr(0755,mysql,mysql) %dir %{_libdir}/%{pkg_name}/plugin/auth_pam_tool_dir
+%{_libdir}/security/pam_user_map.so
+%{_sysconfdir}/security/user_map.conf
 %{_libdir}/%{pkg_name}/plugin/*
 %{?with_oqgraph:%exclude %{_libdir}/%{pkg_name}/plugin/ha_oqgraph.so}
 %{?with_connect:%exclude %{_libdir}/%{pkg_name}/plugin/ha_connect.so}
@@ -1555,6 +1559,9 @@ fi
 %endif
 
 %changelog
+* Thu Feb 06 2020 Michal Schorm <mschorm@redhat.com> - 10.4.12-1
+- Rebase to 10.4.12
+
 * Wed Jan 29 2020 Fedora Release Engineering <releng@fedoraproject.org> - 3:10.4.11-2
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_32_Mass_Rebuild
 
