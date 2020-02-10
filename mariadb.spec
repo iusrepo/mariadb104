@@ -11,7 +11,7 @@
 # The last version on which the full testsuite has been run
 # In case of further rebuilds of that version, don't require full testsuite to be run
 # run only "main" suite
-%global last_tested_version 10.4.6
+%global last_tested_version 10.4.11
 # Set to 1 to force run the testsuite even if it was already tested in current version
 %global force_run_testsuite 0
 
@@ -36,23 +36,17 @@
 #   Current version in MariaDB, 7.07, only supports the x86_64
 #   Mroonga upstream warns about using 32-bit package: http://mroonga.org/docs/install.html
 # RocksDB engine
-#   https://mariadb.com/kb/en/library/myrocks-supported-platforms/
-#   RocksB engine is available only for x86_64
+#   https://mariadb.com/kb/en/library/about-myrocks-for-mariadb/
+#   RocksDB engine is available only for x86_64
 #   RocksDB may be built with jemalloc, if specified in CMake
-# Cassandra engine
-#   Experimental version of the Cassandra storage engine
-#   The tests needs running cassandra server
-#   Do not build it for now
 %if %_arch == x86_64 && 0%{?fedora}
 %bcond_without tokudb
 %bcond_without mroonga
 %bcond_without rocksdb
-%bcond_with cassandra
 %else
 %bcond_with tokudb
 %bcond_with mroonga
 %bcond_with rocksdb
-%bcond_with cassandra
 %endif
 
 # The Open Query GRAPH engine (OQGRAPH) is a computation engine allowing
@@ -69,6 +63,7 @@
 %bcond_with connect
 %bcond_with sphinx
 %endif
+
 %bcond_without gssapi
 
 # For some use cases we do not need some parts of the package. Set to "...with" to exclude
@@ -85,17 +80,11 @@
 %bcond_without test
 %bcond_without galera
 %bcond_without backup
-# Upstream no longer maintain and pack the bench subpackage
-%if 0%{?fedora}
-%bcond_with bench
-%else
-%bcond_with bench
-%endif
 
 # When there is already another package that ships /etc/my.cnf,
 # rather include it than ship the file again, since conflicts between
 # those files may create issues
-%if 0%{?fedora} >= 29 || 0%{?rhel} > 7
+%if 0%{?fedora} || 0%{?rhel} > 7
 %bcond_with config
 %else
 %bcond_without config
@@ -157,7 +146,7 @@
 %global sameevr   %{epoch}:%{version}-%{release}
 
 Name:             mariadb
-Version:          10.4.11
+Version:          10.4.12
 Release:          1%{?with_debug:.debug}%{?dist}
 Epoch:            3
 
@@ -202,10 +191,16 @@ Patch7:           %{pkgnamepatch}-scripts.patch
 Patch9:           %{pkgnamepatch}-ownsetup.patch
 #   Patch10: Fix cipher name in the SSL Cipher name test
 Patch10:          %{pkgnamepatch}-ssl-cipher-tests.patch
-#   Patch11: Workaround for "chown 0" with priviledges dropped to "mysql" user
-Patch11:          %{pkgnamepatch}-auth_pam_tool_dir.patch
+#   Patch11: Use PCDIR CMake option, if configured
+Patch11:          %{pkgnamepatch}-pcdir.patch
 #   Patch13: Fix Spider code on armv7hl; https://jira.mariadb.org/browse/MDEV-18737
 Patch13:          %{pkgnamepatch}-spider_on_armv7hl.patch
+#   Patch14: Remove the '-Werror' flag so the debug build won't crash on random warnings
+Patch14:          %{pkgnamepatch}-debug_build.patch
+#   Patch15:  Add option to edit groonga's and groonga-normalizer-mysql install path
+Patch15:          %{pkgnamepatch}-groonga.patch
+#   Patch16: Workaround for "chown 0" with priviledges dropped to "mysql" user
+Patch16:          %{pkgnamepatch}-auth_pam_tool_dir.patch
 
 BuildRequires:    cmake gcc-c++
 BuildRequires:    multilib-rpm-config
@@ -226,6 +221,8 @@ BuildRequires:    ncurses-devel
 BuildRequires:    systemtap-sdt-devel
 # Bison SQL parser; needed also for wsrep API
 BuildRequires:    bison bison-devel
+
+%{?with_debug:BuildRequires:    valgrind-devel}
 
 # auth_pam.so plugin will be build if pam-devel is installed
 BuildRequires:    pam-devel
@@ -286,7 +283,7 @@ Suggests:         %{name}-server%{?_isa} = %{sameevr}
 # MySQL (with caps) is upstream's spelling of their own RPMs for mysql
 %{?with_conflicts:Conflicts:        community-mysql}
 
-# Filtering: https://fedoraproject.org/wiki/Packaging:AutoProvidesAndRequiresFiltering
+# Filtering: https://docs.fedoraproject.org/en-US/packaging-guidelines/AutoProvidesAndRequiresFiltering/
 %global __requires_exclude ^perl\\((hostnames|lib::mtr|lib::v1|mtr_|My::)
 %global __provides_exclude_from ^(%{_datadir}/(mysql|mysql-test)/.*|%{_libdir}/%{pkg_name}/plugin/.*\\.so)$
 
@@ -308,14 +305,14 @@ Requires:         %{name}-common%{?_isa} = %{sameevr}
 %if %{with mysql_names}
 Provides:         mysql-libs = %{sameevr}
 Provides:         mysql-libs%{?_isa} = %{sameevr}
-%endif # mysql_names
+%endif
 
 %description      libs
 The mariadb-libs package provides the essential shared libraries for any
 MariaDB/MySQL client program or interface. You will need to install this
 package to use any other MariaDB package or any clients that need to connect
 to a MariaDB/MySQL server.
-%endif #clibrary
+%endif
 
 
 # At least main config file /etc/my.cnf is shared for client and server part
@@ -343,6 +340,7 @@ package itself.
 %package          common
 Summary:          The shared files required by server and client
 Requires:         %{_sysconfdir}/my.cnf
+
 
 %if %{without clibrary}
 Obsoletes: %{name}-libs <= %{sameevr}
@@ -410,7 +408,6 @@ Recommends:       %{name}-backup%{?_isa} = %{sameevr}
 %{?with_sphinx:Suggests:       %{name}-sphinx-engine%{?_isa} = %{sameevr}}
 %{?with_oqgraph:Suggests:      %{name}-oqgraph-engine%{?_isa} = %{sameevr}}
 %{?with_connect:Suggests:      %{name}-connect-engine%{?_isa} = %{sameevr}}
-%{?with_cassandra:Suggests:    %{name}-cassandra-engine%{?_isa} = %{sameevr}}
 
 Suggests:         mytop
 Suggests:         logrotate
@@ -442,6 +439,9 @@ Provides:         mysql-compat-server = %{sameevr}
 Provides:         mysql-compat-server%{?_isa} = %{sameevr}
 %endif
 %{?with_conflicts:Conflicts:        community-mysql-server}
+
+# Bench subpackage has been deprecated in F32
+Obsoletes: %{name}-bench <= %{sameevr}
 
 %description      server
 MariaDB is a multi-user, multi-threaded SQL database server. It is a
@@ -559,16 +559,6 @@ Requires:         sphinx libsphinxclient
 The Sphinx storage engine for MariaDB.
 %endif
 
-%if %{with cassandra}
-%package          cassandra-engine
-Summary:          The Cassandra storage engine for MariaDB - EXPERIMENTAL VERSION
-Requires:         %{name}-server%{?_isa} = %{sameevr}
-BuildRequires:    cassandra thrift-devel
-
-%description      cassandra-engine
-The Cassandra storage engine for MariaDB. EXPERIMENTAL VERSION!
-%endif
-
 
 %package          server-utils
 Summary:          Non-essential server utilities for MariaDB/MySQL applications
@@ -588,10 +578,9 @@ the only MariaDB sub-package, except test subpackage, that depends on Perl.
 %if %{with devel}
 %package          devel
 Summary:          Files for development of MariaDB/MySQL applications
+%{?with_clibrary:Requires:         %{name}-libs%{?_isa} = %{sameevr}}
 Requires:         openssl-devel
-%if %{with clibrary}
-Requires:         %{name}-libs%{?_isa} = %{sameevr}
-%else
+%if %{without clibrary}
 Requires:         mariadb-connector-c-devel >= 3.0
 %endif
 %if %{with mysql_names}
@@ -651,24 +640,6 @@ the embedded version of the MariaDB server.
 %endif
 
 
-%if %{with bench}
-%package          bench
-Summary:          MariaDB benchmark scripts and data
-Requires:         %{name}%{?_isa} = %{sameevr}
-%if %{with mysql_names}
-Provides:         mysql-bench = %{sameevr}
-Provides:         mysql-bench%{?_isa} = %{sameevr}
-%endif
-%{?with_conflicts:Conflicts:        community-mysql-bench}
-
-%description      bench
-MariaDB is a multi-user, multi-threaded SQL database server.
-MariaDB is a community developed branch of MySQL.
-This package contains benchmark scripts and data for use when benchmarking
-MariaDB.
-%endif
-
-
 %if %{with test}
 %package          test
 Summary:          The test suite distributed with MariaDB
@@ -710,9 +681,12 @@ find . -name "*.jar" -type f -exec rm --verbose -f {} \;
 %patch4 -p1
 %patch7 -p1
 %patch9 -p1
-#%patch10 -p1
+%patch10 -p1
 %patch11 -p1
 %patch13 -p1
+%patch14 -p1
+%patch15 -p1
+%patch16 -p1
 
 # workaround for upstream bug #56342
 #rm mysql-test/t/ssl_8k_key-master.opt
@@ -761,7 +735,7 @@ if [ "$pcre_system_version" != "$pcre_maj.$pcre_min" ]
 then
   echo "\n Warning: Error: Bundled PCRE version is not correct. \n\tSystem version number:$pcre_system_version \n\tUpstream version number: $pcre_maj.$pcre_min\n"
 fi
-%endif # PCRE
+%endif
 
 
 %if %{without rocksdb}
@@ -774,6 +748,7 @@ rm -r storage/tokudb/mysql-test/tokudb/t/*.py
 
 
 %build
+%{set_build_flags}
 
 # fail quickly and obviously if user tries to build as root
 %if %runselftest
@@ -789,18 +764,17 @@ CFLAGS="$CFLAGS -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE"
 # force PIC mode so that we can build libmysqld.so
 CFLAGS="$CFLAGS -fPIC"
 
-# Override all optimization flags when making a debug build
 %if %{with debug}
-CFLAGS="$CFLAGS -O0 -g
-CPPFLAGS="$CPPFLAGS -O0 -g -D_FORTIFY_SOURCE=0
+# Override all optimization flags when making a debug build
+CFLAGS="$CFLAGS -O0 -g"
+CPPFLAGS="$CPPFLAGS -O0 -g -D_FORTIFY_SOURCE=0"
 # Fix GCC flags broken by MariaDB upstream
-CFLAGS="$CFLAGS      -Wno-error=deprecated-copy -Wno-error=pessimizing-move -Wno-error=unused-result -Wno-error=maybe-uninitialized -Wno-error=stringop-overflow -Wno-error=sign-compare
-CXXFLAGS="$CFLAGS"
-CPPFLAGS="$CPPFLAGS  -Wno-error=deprecated-copy -Wno-error=pessimizing-move -Wno-error=unused-result -Wno-error=maybe-uninitialized -Wno-error=stringop-overflow -Wno-error=sign-compare
+CFLAGS="$CFLAGS      -Wno-error=deprecated-copy -Wno-error=pessimizing-move -Wno-error=unused-result -Wno-error=maybe-uninitialized -Wno-error=stringop-overflow -Wno-error=sign-compare"
+CPPFLAGS="$CPPFLAGS  -Wno-error=deprecated-copy -Wno-error=pessimizing-move -Wno-error=unused-result -Wno-error=maybe-uninitialized -Wno-error=stringop-overflow -Wno-error=sign-compare"
 %endif
 
-
-
+CXXFLAGS="$CFLAGS"
+CPPFLAGS="$CFLAGS"
 export CFLAGS CXXFLAGS CPPFLAGS
 
 
@@ -830,12 +804,13 @@ export CFLAGS CXXFLAGS CPPFLAGS
          -DINSTALL_PLUGINDIR="%{_lib}/%{pkg_name}/plugin" \
          -DINSTALL_SBINDIR=libexec \
          -DINSTALL_SCRIPTDIR=bin \
-         -DINSTALL_SQLBENCHDIR=share \
          -DINSTALL_SUPPORTFILESDIR=share/%{pkg_name} \
          -DINSTALL_PCDIR=%{_lib}/pkgconfig \
          -DMYSQL_DATADIR="%{dbdatadir}" \
          -DMYSQL_UNIX_ADDR="/var/lib/mysql/mysql.sock" \
          -DTMPDIR=/var/tmp \
+         -DGRN_DATA_DIR=share/%{name}-server/groonga \
+         -DGROONGA_NORMALIZER_MYSQL_PROJECT_NAME=%{name}-server/groonga-normalizer-mysql \
          -DENABLED_LOCAL_INFILE=ON \
          -DENABLE_DTRACE=ON \
          -DSECURITY_HARDENED=ON \
@@ -859,7 +834,6 @@ export CFLAGS CXXFLAGS CPPFLAGS
          -DPLUGIN_SPHINX=%{?with_sphinx:DYNAMIC}%{!?with_sphinx:NO} \
          -DPLUGIN_TOKUDB=%{?with_tokudb:DYNAMIC}%{!?with_tokudb:NO} \
          -DPLUGIN_CONNECT=%{?with_connect:DYNAMIC}%{!?with_connect:NO} \
-         -DWITH_CASSANDRA=%{?with_cassandra:TRUE}%{!?with_cassandra:FALSE} \
          -DPLUGIN_CLIENT_ED25519=OFF \
          -DPYTHON_SHEBANG=%{python_path} \
          -DPLUGIN_CACHING_SHA2_PASSWORD=%{?with_clibrary:DYNAMIC}%{!?with_clibrary:OFF} \
@@ -872,7 +846,7 @@ export CFLAGS CXXFLAGS CPPFLAGS
 # cmake ./ -LAH for List Advanced Help
 cmake ./ -L
 
-make %{?_smp_mflags} VERBOSE=1
+%make_build VERBOSE=1
 
 
 # build selinux policy
@@ -882,7 +856,7 @@ make -f /usr/share/selinux/devel/Makefile %{name}-server-galera.pp
 %endif
 
 %install
-make DESTDIR=%{buildroot} install
+%make_install
 
 # multilib header support #1625157
 for header in mysql/server/my_config.h mysql/server/private/config.h; do
@@ -901,11 +875,6 @@ install -p -m 0755 scripts/mysql_config_multilib %{buildroot}%{_bindir}/mysql_co
 ln -s mysql_config.1 %{buildroot}%{_mandir}/man1/mysql_config-%{__isa_bits}.1
 fi
 
-# Upstream install this into arch-independent directory
-# Reported to upstream as: https://jira.mariadb.org/browse/MDEV-14340
-# TODO: check, if it changes location inside that file depending on values passed to Cmake
-mkdir -p %{buildroot}/%{_libdir}/pkgconfig
-mv %{buildroot}/%{_datadir}/pkgconfig/*.pc %{buildroot}/%{_libdir}/pkgconfig
 %if %{without clibrary}
 # Client part should be included in package 'mariadb-connector-c'
 rm %{buildroot}%{_libdir}/pkgconfig/libmariadb.pc
@@ -915,6 +884,7 @@ rm %{buildroot}%{_libdir}/pkgconfig/libmariadb.pc
 # but that's pretty wacko --- see also %%{name}-file-contents.patch)
 install -p -m 644 Docs/INFO_SRC %{buildroot}%{_libdir}/%{pkg_name}/
 install -p -m 644 Docs/INFO_BIN %{buildroot}%{_libdir}/%{pkg_name}/
+rm -r %{buildroot}%{_datadir}/doc/%{_pkgdocdirname}/MariaDB-server-%{version}/
 
 # Logfile creation
 mkdir -p %{buildroot}%{logfiledir}
@@ -939,7 +909,7 @@ mv %{buildroot}%{_sysconfdir}/my.cnf.d/server.cnf %{buildroot}%{_sysconfdir}/my.
 # Rename sysusers and tmpfiles config files, they should be named after the software they belong to
 mv %{buildroot}%{_sysusersdir}/sysusers.conf %{buildroot}%{_sysusersdir}/%{name}.conf
 
-# remove SysV init script and a symlink to that, we pack our very own
+# remove SysV init script and a symlink to that, we use systemd
 rm %{buildroot}%{_libexecdir}/rcmysql
 # install systemd unit files and scripts for handling server startup
 install -D -p -m 644 scripts/mysql.service %{buildroot}%{_unitdir}/%{daemon_name}.service
@@ -950,7 +920,7 @@ rm %{buildroot}%{_tmpfilesdir}/tmpfiles.conf
 install -D -p -m 0644 scripts/mysql.tmpfiles.d %{buildroot}%{_tmpfilesdir}/%{name}.conf
 %if 0%{?mysqld_pid_dir:1}
 echo "d %{pidfiledir} 0755 mysql mysql -" >>%{buildroot}%{_tmpfilesdir}/%{name}.conf
-%endif #pid
+%endif
 
 # helper scripts for service starting
 install -p -m 755 scripts/mysql-prepare-db-dir %{buildroot}%{_libexecdir}/mysql-prepare-db-dir
@@ -974,8 +944,7 @@ ln -s unstable-tests %{buildroot}%{_datadir}/mysql-test/rh-skipped-tests.list
 
 # Client that uses libmysqld embedded server.
 # Pretty much like normal mysql command line client, but it doesn't require a running mariadb server.
-%{?with_embedded:rm %{buildroot}%{_bindir}/mysql_embedded}
-%{?with_embedded:rm %{buildroot}%{_bindir}/mariadb-embedded}
+%{?with_embedded:rm %{buildroot}%{_bindir}/{mariadb-,mysql_}embedded}
 rm %{buildroot}%{_mandir}/man1/{mysql_,mariadb-}embedded.1*
 # Static libraries
 rm %{buildroot}%{_libdir}/*.a
@@ -994,7 +963,7 @@ rm %{buildroot}%{_datadir}/%{pkg_name}/mysql.server
 rm %{buildroot}%{_datadir}/%{pkg_name}/mysqld_multi.server
 
 # Binary for monitoring MySQL performance
-# Shipped as a standalona package in Fedora
+# Shipped as a standalone package in Fedora
 rm %{buildroot}%{_bindir}/mytop
 
 # put logrotate script where it needs to be
@@ -1024,8 +993,7 @@ rm %{buildroot}%{logrotateddir}/mysql
 # Remove AppArmor files
 rm -r %{buildroot}%{_datadir}/%{pkg_name}/policy/apparmor
 
-# script without shebang: https://jira.mariadb.org/browse/MDEV-14266
-chmod -x %{buildroot}%{_datadir}/sql-bench/myisam.cnf
+mv %{buildroot}/lib/security %{buildroot}%{_libdir}
 
 # Disable plugins
 %if %{with gssapi}
@@ -1033,6 +1001,13 @@ sed -i 's/^plugin-load-add/#plugin-load-add/' %{buildroot}%{_sysconfdir}/my.cnf.
 %endif
 %if %{with cracklib}
 sed -i 's/^plugin-load-add/#plugin-load-add/' %{buildroot}%{_sysconfdir}/my.cnf.d/cracklib_password_check.cnf
+%endif
+
+# Fix Galera Replication config file
+#   The replication requires cluster address upon startup (which is end-user specific).
+#   Disable it entirely, rather than have it failing out-of-the-box.
+%if %{with galera}
+sed -i 's/^wsrep_on=1/wsrep_on=0/' %{buildroot}%{_sysconfdir}/my.cnf.d/galera.cnf
 %endif
 
 %if %{without embedded}
@@ -1078,8 +1053,8 @@ rm %{buildroot}%{_libdir}/pkgconfig/mariadb.pc
 rm %{buildroot}%{_libdir}/libmariadb*.so
 unlink %{buildroot}%{_libdir}/libmysqlclient.so
 unlink %{buildroot}%{_libdir}/libmysqlclient_r.so
-%endif # clibrary
-%endif # devel
+%endif
+%endif
 
 %if %{without client}
 rm %{buildroot}%{_bindir}/msql2mysql
@@ -1091,8 +1066,6 @@ rm %{buildroot}%{_mandir}/man1/msql2mysql.1*
 rm %{buildroot}%{_mandir}/man1/{mysql,mariadb}.1*
 rm %{buildroot}%{_mandir}/man1/mysql{access,admin,binlog,check,dump,_find_rows,import,_plugin,show,slap,_waitpid}.1*
 rm %{buildroot}%{_mandir}/man1/mariadb-{access,admin,binlog,check,dump,find-rows,import,plugin,show,slap,waitpid}.1*
-
-rm %{buildroot}%{_sysconfdir}/my.cnf.d/mysql-clients.cnf
 %endif
 
 %if %{without tokudb}
@@ -1101,9 +1074,9 @@ rm %{buildroot}%{_mandir}/man1/tokuftdump.1*
 rm %{buildroot}%{_mandir}/man1/tokuft_logprint.1*
 %else
 %if 0%{?fedora} || 0%{?rhel} > 7
-rm -f %{buildroot}/etc/systemd/system/mariadb.service.d/tokudb.conf
+# Move the upstream file to the correct location
 mkdir -p %{buildroot}%{_unitdir}/mariadb.service.d
-echo -e '[Service]\nEnvironment="LD_PRELOAD=%{_libdir}/libjemalloc.so.2"' >> %{buildroot}%{_unitdir}/mariadb.service.d/tokudb.conf
+mv %{buildroot}/etc/systemd/system/mariadb.service.d/tokudb.conf %{buildroot}%{_unitdir}/mariadb.service.d/tokudb.conf
 %endif
 %endif
 
@@ -1115,19 +1088,11 @@ rm %{buildroot}%{_sysconfdir}/my.cnf
 rm -r %{buildroot}%{_datadir}/%{pkg_name}/charsets
 %endif
 
-%if %{without gssapi}
-#rm -r %{buildroot}/etc/my.cnf.d/auth_gssapi.cnf
-%endif
-
 %if %{without errmsg}
 rm %{buildroot}%{_datadir}/%{pkg_name}/errmsg-utf8.txt
 rm -r %{buildroot}%{_datadir}/%{pkg_name}/{english,czech,danish,dutch,estonian,\
 french,german,greek,hungarian,italian,japanese,korean,norwegian,norwegian-ny,\
 polish,portuguese,romanian,russian,serbian,slovak,spanish,swedish,ukrainian,hindi}
-%endif
-
-%if %{without bench}
-rm -r %{buildroot}%{_datadir}/sql-bench
 %endif
 
 %if %{without test}
@@ -1143,10 +1108,10 @@ rm %{buildroot}%{_bindir}/{mariadb-client-test,mariadb-test}
 rm %{buildroot}%{_mandir}/man1/{mysql_client_test,mysqltest,my_safe_process}.1*
 rm %{buildroot}%{_mandir}/man1/{mariadb-client-test,mariadb-test}.1*
 rm %{buildroot}%{_mandir}/man1/{mysql-test-run,mysql-stress-test}.pl.1*
-%endif # test
+%endif
 
 %if %{without galera}
-#rm %{buildroot}%{_sysconfdir}/my.cnf.d/galera.cnf
+rm %{buildroot}%{_sysconfdir}/my.cnf.d/galera.cnf
 rm %{buildroot}%{_sysconfdir}/sysconfig/clustercheck
 rm %{buildroot}%{_bindir}/{clustercheck,galera_new_cluster}
 rm %{buildroot}%{_bindir}/galera_recovery
@@ -1185,7 +1150,7 @@ export MTR_BUILD_THREAD=%{__isa_bits}
   set -ex
   cd mysql-test
 
-  export common_testsuite_arguments=" --parallel=auto --force --retry=1 --suite-timeout=900 --testcase-timeout=30 --mysqld=--binlog-format=mixed --force-restart --shutdown-timeout=60 --max-test-fail=5 "
+  export common_testsuite_arguments=" --parallel=auto --force --retry=2 --suite-timeout=900 --testcase-timeout=30 --mysqld=--binlog-format=mixed --force-restart --shutdown-timeout=60 --max-test-fail=5 "
 
   # If full testsuite has already been run on this version and we don't explicitly want the full testsuite to be run
   if [[ "%{last_tested_version}" == "%{version}" ]] && [[ %{force_run_testsuite} -eq 0 ]]
@@ -1206,7 +1171,7 @@ export MTR_BUILD_THREAD=%{__isa_bits}
       --skip-test-list=unstable-tests
     %endif
     # Second run for the SPIDER suites that fail with SCA (ssl self signed certificate)
-    perl ./mysql-test-run.pl $common_testsuite_arguments --skip-ssl --big-test --mem --suite=spider,spider/bg \
+    perl ./mysql-test-run.pl $common_testsuite_arguments --skip-ssl --big-test --mem --suite=spider,spider/bg,spider/bugfix,spider/handler \
     %if %{ignore_testsuite_result}
       --max-test-fail=999 || :
     %endif
@@ -1214,8 +1179,11 @@ export MTR_BUILD_THREAD=%{__isa_bits}
   fi
 )
 
-%endif # if dry run
-%endif # with test
+# NOTE: the Spider SE has 2 more hidden testsuites "oracle" and "oracle2".
+#       however, all of the tests fail with: "failed: 12521: Can't use wrapper 'oracle' for SQL connection"
+
+%endif
+%endif
 
 
 
@@ -1270,16 +1238,13 @@ fi
 %{_mandir}/man1/mariadb-{access,admin,binlog,check,dump,find-rows,import,plugin,show,slap,waitpid}.1*
 
 %config(noreplace) %{_sysconfdir}/my.cnf.d/mysql-clients.cnf
-
 %endif
 
 %if %{with clibrary}
 %files libs
-%if %{with clibrary}
 %exclude %{_libdir}/{libmysqlclient.so.18,libmariadb.so,libmysqlclient.so,libmysqlclient_r.so}
 %{_libdir}/libmariadb.so*
 %config(noreplace) %{_sysconfdir}/my.cnf.d/client.cnf
-%endif
 %endif
 
 %if %{with config}
@@ -1298,8 +1263,8 @@ fi
 %if %{with clibrary}
 %{_libdir}/%{pkg_name}/plugin/dialog.so
 %{_libdir}/%{pkg_name}/plugin/mysql_clear_password.so
-%endif # clibrary
-%endif # common
+%endif
+%endif
 
 %if %{with errmsg}
 %files errmsg
@@ -1380,6 +1345,8 @@ fi
 %dir %{_libdir}/%{pkg_name}/plugin
 # Change from root:root to mysql:mysql, so it can be accessed by the server
 %attr(0755,mysql,mysql) %dir %{_libdir}/%{pkg_name}/plugin/auth_pam_tool_dir
+%{_libdir}/security/pam_user_map.so
+%{_sysconfdir}/security/user_map.conf
 %{_libdir}/%{pkg_name}/plugin/*
 %{?with_oqgraph:%exclude %{_libdir}/%{pkg_name}/plugin/ha_oqgraph.so}
 %{?with_connect:%exclude %{_libdir}/%{pkg_name}/plugin/ha_connect.so}
@@ -1388,7 +1355,6 @@ fi
 %{?with_tokudb:%exclude %{_libdir}/%{pkg_name}/plugin/ha_tokudb.so}
 %{?with_gssapi:%exclude %{_libdir}/%{pkg_name}/plugin/auth_gssapi.so}
 %{?with_sphinx:%exclude %{_libdir}/%{pkg_name}/plugin/ha_sphinx.so}
-%{?with_cassandra:%exclude %{_libdir}/%{pkg_name}/plugin/ha_cassandra.so}
 %if %{with clibrary}
 %exclude %{_libdir}/%{pkg_name}/plugin/dialog.so
 %exclude %{_libdir}/%{pkg_name}/plugin/mysql_clear_password.so
@@ -1403,16 +1369,19 @@ fi
 %{_mandir}/man1/myisampack.1*
 %{_mandir}/man1/myisam_ftdump.1*
 %{_mandir}/man1/my_print_defaults.1*
-%{_mandir}/man1/mysql.server.1*
+
 %{_mandir}/man1/mysql_{install_db,secure_installation,tzinfo_to_sql}.1*
 %{_mandir}/man1/mariadb-{install-db,secure-installation,tzinfo-to-sql}.1*
 %{_mandir}/man1/{mysqld_,mariadbd-}safe.1*
+
 %{_mandir}/man1/innochecksum.1*
 %{_mandir}/man1/replace.1*
 %{_mandir}/man1/resolveip.1*
 %{_mandir}/man1/resolve_stack_dump.1*
 %{_mandir}/man8/{mysqld,mariadbd}.8*
 %{_mandir}/man1/wsrep_*.1*
+
+%{_mandir}/man1/mysql.server.1*
 
 %{_datadir}/%{pkg_name}/fill_help_tables.sql
 %{_datadir}/%{pkg_name}/install_spider.sql
@@ -1429,10 +1398,10 @@ fi
 %{_datadir}/%{pkg_name}/mroonga/uninstall.sql
 %license %{_datadir}/%{pkg_name}/mroonga/COPYING
 %license %{_datadir}/%{pkg_name}/mroonga/AUTHORS
-%license %{_datadir}/groonga-normalizer-mysql/lgpl-2.0.txt
-%license %{_datadir}/groonga/COPYING
-%doc %{_datadir}/groonga-normalizer-mysql/README.md
-%doc %{_datadir}/groonga/README.md
+%license %{_datadir}/%{name}-server/groonga-normalizer-mysql/lgpl-2.0.txt
+%license %{_datadir}/%{name}-server/groonga/COPYING
+%doc %{_datadir}/%{name}-server/groonga-normalizer-mysql/README.md
+%doc %{_datadir}/%{name}-server/groonga/README.md
 %endif
 %if %{with galera}
 %{_datadir}/%{pkg_name}/wsrep.cnf
@@ -1526,12 +1495,6 @@ fi
 %{_libdir}/%{pkg_name}/plugin/ha_connect.so
 %endif
 
-%if %{with cassandra}
-%files cassandra-engine
-%config(noreplace) %{_sysconfdir}/my.cnf.d/cassandra.cnf
-%{_libdir}/%{pkg_name}/plugin/ha_cassandra.so
-%endif
-
 %files server-utils
 # Perl utilities
 %{_bindir}/mysql{_convert_table_format,dumpslow,_fix_extensions,hotcopy,_setpermission}
@@ -1576,12 +1539,6 @@ fi
 %{_libdir}/libmariadbd.so
 %endif
 
-%if %{with bench}
-%files bench
-%{_datadir}/sql-bench
-%doc %{_datadir}/sql-bench/README
-%endif
-
 %if %{with test}
 %files test
 %if %{with embedded}
@@ -1594,6 +1551,7 @@ fi
 %{_bindir}/{mysql_client_test,mysqltest,mariadb-client-test,mariadb-test}
 %{_bindir}/my_safe_process
 %attr(-,mysql,mysql) %{_datadir}/mysql-test
+%{_mandir}/man1/mysql_client_test.1*
 %{_mandir}/man1/{mysql_client_test,mysqltest,mariadb-client-test,mariadb-test}.1*
 %{_mandir}/man1/my_safe_process.1*
 %{_mandir}/man1/mysql-stress-test.pl.1*
@@ -1601,38 +1559,66 @@ fi
 %endif
 
 %changelog
-* Fri Jan 10 2020 Michal Schorm <mschorm@redhat.com> - 10.4.11-1
+* Thu Feb 06 2020 Michal Schorm <mschorm@redhat.com> - 10.4.12-1
+- Rebase to 10.4.12
+
+* Wed Jan 29 2020 Fedora Release Engineering <releng@fedoraproject.org> - 3:10.4.11-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_32_Mass_Rebuild
+
+* Fri Jan 17 2020 Michal Schorm <mschorm@redhat.com> - 10.4.11-1
 - Rebase to 10.4.11
+  Related: #1756468
+- Remove 'bench' subpackage. Upstream no longer maintains it.
+- Use Valgrind for debug builds
+- Remove ancient obsoletions
+- Tweak build flags
+- Add patch for auth_pam_tool directory
 
+* Fri Jan 10 2020 Michal Schorm <mschorm@redhat.com> - 10.3.21-1
+- Rebase to 10.3.21
 
-* Tue Dec 03 2019 Michal Schorm <mschorm@redhat.com> - 3:10.4.10-1
-- Rebase to 10.4.10
-  Upstream started linking the Galera libraries statically
+* Mon Nov 18 2019 Lukas Javorsky <ljavorsk@redhat.com> - 10.3.20-3
+- Change path of groonga's packaged files
+- Fix bz#1763287
 
-* Wed Sep 25 2019 Michal Schorm <mschorm@redhat.com> - 3:10.4.7-2
+* Tue Nov 12 2019 Michal Schorm <mschorm@redhat.com> - 10.3.20-2
+- Rebuild on top fo new mariadb-connector-c
+
+* Mon Nov 11 2019 Michal Schorm <mschorm@redhat.com> - 10.3.20-1
+- Rebase to 10.3.20
+
+* Wed Nov 06 2019 Michal Schorm <mschorm@redhat.com> - 10.3.19-1
+- Rebase to 10.3.19
+
+* Thu Oct 31 2019 Carl George <carl@george.computer> - 3:10.3.18-1
+- Rebase to 10.3.18
+
+* Wed Sep 11 2019 Michal Schorm <mschorm@redhat.com> - 10.3.17-3
 - Disable building of the ed25519 client plugin.
   From now on it will be shipped by 'mariadb-connector-c' package
-- Disable building of bench subpackage. Upstream no longer maintain it
 
-* Thu Aug 22 2019 Michal Schorm <mschorm@redhat.com> - 3:10.4.7-1
-- Rebase to 10.4.7
+* Fri Sep 06 2019 Michal Schorm <mschorm@redhat.com> - 10.3.17-2
+- Fix the debug build
 
-* Fri Jun 21 2019 Michal Schorm <mschorm@redhat.com> - 3:10.4.6-2
-- Apply critical patch for Spider SE on Armv7hl architecture
+* Thu Aug 01 2019 Michal Schorm <mschorm@redhat.com> - 10.3.17-1
+- Rebase to 10.3.17
 
-* Thu Jun 20 2019 Michal Schorm <mschorm@redhat.com> - 3:10.4.6-1
-- Rebase to 10.4.6
+* Thu Jul 25 2019 Fedora Release Engineering <releng@fedoraproject.org> - 3:10.3.16-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_31_Mass_Rebuild
 
-* Fri Jun 07 2019 Michal Schorm <mschorm@redhat.com> - 3:10.4.5-1
-- Rebase to 10.4.5
-- This is a RC release! use with caution
+* Tue Jun 18 2019 Michal Schorm <mschorm@redhat.com> - 10.3.16-1
+- Rebase to 10.3.16
+- Added patch for armv7hl builds of spider SE
 
-* Tue Jun 04 2019 Michal Schorm <mschorm@redhat.com> - 3:10.3.15-1
+* Tue Jun 11 2019 Michal Schorm <mschorm@redhat.com> - 10.3.15-1
 - Rebase to 10.3.15
 - CVEs fixed:
   CVE-2019-2510 CVE-2019-2537
 - CVEs fixed:
   CVE-2019-2614 CVE-2019-2627 CVE-2019-2628
+
+* Tue Jun 11 2019 Michal Schorm <mschorm@redhat.com> - 10.3.12-15
+- Remove Cassandra subpackage; it is no longer developed
 
 * Thu Mar 21 2019 Michal Schorm <mschorm@redhat.com> - 10.3.12-14
 - Fix building of TokuDB with Jemalloc 5

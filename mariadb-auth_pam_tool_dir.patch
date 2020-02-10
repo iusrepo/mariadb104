@@ -5,11 +5,11 @@ Thus "chown 0" will always fail
 Never parse 'ls' output!
 http://mywiki.wooledge.org/BashFAQ/087
 
---- mariadb-10.4.7/scripts/mysql_install_db.sh	2019-07-30 13:32:16.000000000 +0200
-+++ mariadb-10.4.7/scripts/mysql_install_db.sh_patched	2019-08-22 16:29:28.341484925 +0200
-@@ -490,13 +490,16 @@ then
-   fi
-   if test -z "$srcdir"
+--- mariadb-10.4.12/scripts/mysql_install_db.sh	2020-01-26 21:43:53.000000000 +0100
++++ mariadb-10.4.12/scripts/mysql_install_db.sh_patched	2020-01-29 11:11:09.448812331 +0100
+@@ -482,13 +482,16 @@ if test -n "$user"
+ then
+   if test -z "$srcdir" -a "$in_rpm" -eq 0
    then
 -    chown 0 "$pamtooldir/auth_pam_tool_dir/auth_pam_tool" && \
 -    chmod 04755 "$pamtooldir/auth_pam_tool_dir/auth_pam_tool"
@@ -21,9 +21,9 @@ http://mywiki.wooledge.org/BashFAQ/087
 +      if test $? -ne 0
 +      then
          echo "Couldn't set an owner to '$pamtooldir/auth_pam_tool_dir/auth_pam_tool'."
-         echo " It must be root, the PAM authentication plugin doesn't work otherwise.."
+         echo "It must be root, the PAM authentication plugin doesn't work otherwise.."
          echo
 +      fi
      fi
-   fi
-   args="$args --user=$user"
+     chown $user "$pamtooldir/auth_pam_tool_dir" && \
+     chmod 0700 "$pamtooldir/auth_pam_tool_dir"
