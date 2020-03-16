@@ -11,7 +11,7 @@
 # The last version on which the full testsuite has been run
 # In case of further rebuilds of that version, don't require full testsuite to be run
 # run only "main" suite
-%global last_tested_version 10.4.11
+%global last_tested_version 10.4.12
 # Set to 1 to force run the testsuite even if it was already tested in current version
 %global force_run_testsuite 0
 
@@ -147,7 +147,7 @@
 
 Name:             mariadb
 Version:          10.4.12
-Release:          1%{?with_debug:.debug}%{?dist}
+Release:          3%{?with_debug:.debug}%{?dist}
 Epoch:            3
 
 Summary:          A very fast and robust SQL database server
@@ -195,8 +195,6 @@ Patch10:          %{pkgnamepatch}-ssl-cipher-tests.patch
 Patch11:          %{pkgnamepatch}-pcdir.patch
 #   Patch13: Fix Spider code on armv7hl; https://jira.mariadb.org/browse/MDEV-18737
 Patch13:          %{pkgnamepatch}-spider_on_armv7hl.patch
-#   Patch14: Remove the '-Werror' flag so the debug build won't crash on random warnings
-Patch14:          %{pkgnamepatch}-debug_build.patch
 #   Patch15:  Add option to edit groonga's and groonga-normalizer-mysql install path
 Patch15:          %{pkgnamepatch}-groonga.patch
 #   Patch16: Workaround for "chown 0" with priviledges dropped to "mysql" user
@@ -677,6 +675,8 @@ sources.
 # Remove JAR files that upstream puts into tarball
 find . -name "*.jar" -type f -exec rm --verbose -f {} \;
 
+rm -rf libmariadb/unittest
+
 %patch2 -p1
 %patch4 -p1
 %patch7 -p1
@@ -684,7 +684,6 @@ find . -name "*.jar" -type f -exec rm --verbose -f {} \;
 %patch10 -p1
 %patch11 -p1
 %patch13 -p1
-%patch14 -p1
 %patch15 -p1
 %patch16 -p1
 
@@ -766,15 +765,29 @@ CFLAGS="$CFLAGS -fPIC"
 
 %if %{with debug}
 # Override all optimization flags when making a debug build
-CFLAGS="$CFLAGS -O0 -g"
-CPPFLAGS="$CPPFLAGS -O0 -g -D_FORTIFY_SOURCE=0"
-# Fix GCC flags broken by MariaDB upstream
-CFLAGS="$CFLAGS      -Wno-error=deprecated-copy -Wno-error=pessimizing-move -Wno-error=unused-result -Wno-error=maybe-uninitialized -Wno-error=stringop-overflow -Wno-error=sign-compare"
-CPPFLAGS="$CPPFLAGS  -Wno-error=deprecated-copy -Wno-error=pessimizing-move -Wno-error=unused-result -Wno-error=maybe-uninitialized -Wno-error=stringop-overflow -Wno-error=sign-compare"
-%endif
+# -D_FORTIFY_SOURCE requires optimizations enabled. Disable the fortify.
+CFLAGS=`echo "$CFLAGS" | sed -r 's/-D_FORTIFY_SOURCE=[012]/-D_FORTIFY_SOURCE=0/'`
+CFLAGS=`echo "$CFLAGS" | sed -r 's/-O[0123]//'`
+
+CFLAGS="$CFLAGS -O0 -g -D_FORTIFY_SOURCE=0"
+
+# Fixes for Fedora 32 & Rawhide (GCC 10.0):
+%if 0%{?fedora} >= 32
+CFLAGS="$CFLAGS -Wno-error=class-memaccess"
+%endif # f32
+
+%endif # debug
 
 CXXFLAGS="$CFLAGS"
 CPPFLAGS="$CFLAGS"
+
+# CFLAGS specific "-Wno-error"
+%if %{with debug}
+%if 0%{?fedora} >= 32
+CFLAGS="$CFLAGS -Wno-error=enum-conversion"
+%endif # f32
+%endif # debug
+
 export CFLAGS CXXFLAGS CPPFLAGS
 
 
@@ -1559,6 +1572,13 @@ fi
 %endif
 
 %changelog
+* Mon Mar 16 2020 Michal Schorm <mschorm@redhat.com> - 10.4.12-3
+- Rebase mariadb-connector-c git submodule to commit fbf1db6
+  For fix: https://jira.mariadb.org/browse/CONC-441
+
+* Tue Mar 10 2020 Michal Schorm <mschorm@redhat.com> - 10.4.12-2
+- Update the fix for building in the debug mode
+
 * Thu Feb 06 2020 Michal Schorm <mschorm@redhat.com> - 10.4.12-1
 - Rebase to 10.4.12
 
