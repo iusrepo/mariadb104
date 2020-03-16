@@ -11,7 +11,7 @@
 # The last version on which the full testsuite has been run
 # In case of further rebuilds of that version, don't require full testsuite to be run
 # run only "main" suite
-%global last_tested_version 10.4.11
+%global last_tested_version 10.4.12
 # Set to 1 to force run the testsuite even if it was already tested in current version
 %global force_run_testsuite 0
 
@@ -147,7 +147,7 @@
 
 Name:             mariadb
 Version:          10.4.12
-Release:          2%{?with_debug:.debug}%{?dist}
+Release:          3%{?with_debug:.debug}%{?dist}
 Epoch:            3
 
 Summary:          A very fast and robust SQL database server
@@ -674,6 +674,8 @@ sources.
 
 # Remove JAR files that upstream puts into tarball
 find . -name "*.jar" -type f -exec rm --verbose -f {} \;
+
+rm -rf libmariadb/unittest
 
 %patch2 -p1
 %patch4 -p1
@@ -1570,6 +1572,10 @@ fi
 %endif
 
 %changelog
+* Mon Mar 16 2020 Michal Schorm <mschorm@redhat.com> - 10.4.12-3
+- Rebase mariadb-connector-c git submodule to commit fbf1db6
+  For fix: https://jira.mariadb.org/browse/CONC-441
+
 * Tue Mar 10 2020 Michal Schorm <mschorm@redhat.com> - 10.4.12-2
 - Update the fix for building in the debug mode
 
