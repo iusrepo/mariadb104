@@ -147,7 +147,7 @@
 
 Name:             mariadb
 Version:          10.4.12
-Release:          3%{?with_debug:.debug}%{?dist}
+Release:          4%{?with_debug:.debug}%{?dist}
 Epoch:            3
 
 Summary:          A very fast and robust SQL database server
@@ -237,19 +237,39 @@ BuildRequires:    python3
 # Tests requires time and ps and some perl modules
 BuildRequires:    procps
 BuildRequires:    time
+BuildRequires:    perl(base)
+BuildRequires:    perl(Cwd)
+BuildRequires:    perl(Data::Dumper)
+BuildRequires:    perl(English)
 BuildRequires:    perl(Env)
+BuildRequires:    perl(Errno)
 BuildRequires:    perl(Exporter)
 BuildRequires:    perl(Fcntl)
+BuildRequires:    perl(File::Basename)
+BuildRequires:    perl(File::Copy)
+BuildRequires:    perl(File::Find)
+BuildRequires:    perl(File::Spec)
+BuildRequires:    perl(File::Spec::Functions)
 BuildRequires:    perl(File::Temp)
-BuildRequires:    perl(Data::Dumper)
 BuildRequires:    perl(Getopt::Long)
+BuildRequires:    perl(IO::File)
+BuildRequires:    perl(IO::Handle)
+BuildRequires:    perl(IO::Select)
+BuildRequires:    perl(IO::Socket)
+BuildRequires:    perl(IO::Socket::INET)
 BuildRequires:    perl(IPC::Open3)
+BuildRequires:    perl(lib)
 BuildRequires:    perl(Memoize)
+BuildRequires:    perl(POSIX)
 BuildRequires:    perl(Socket)
+BuildRequires:    perl(strict)
+BuildRequires:    perl(Symbol)
 BuildRequires:    perl(Sys::Hostname)
+BuildRequires:    perl(Term::ANSIColor)
 BuildRequires:    perl(Test::More)
 BuildRequires:    perl(Time::HiRes)
-BuildRequires:    perl(Symbol)
+BuildRequires:    perl(Time::localtime)
+BuildRequires:    perl(warnings)
 # for running some openssl tests rhbz#1189180
 BuildRequires:    openssl openssl-devel
 
@@ -1572,6 +1592,9 @@ fi
 %endif
 
 %changelog
+* Thu Mar 26 2020 Jitka Plesnikova <jplesnik@redhat.com> - 10.4.12-4
+- Add perl dependencies needed for tests
+
 * Mon Mar 16 2020 Michal Schorm <mschorm@redhat.com> - 10.4.12-3
 - Rebase mariadb-connector-c git submodule to commit fbf1db6
   For fix: https://jira.mariadb.org/browse/CONC-441
