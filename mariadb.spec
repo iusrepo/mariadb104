@@ -147,7 +147,7 @@
 
 Name:             mariadb
 Version:          10.4.12
-Release:          4%{?with_debug:.debug}%{?dist}
+Release:          5%{?with_debug:.debug}%{?dist}
 Epoch:            3
 
 Summary:          A very fast and robust SQL database server
@@ -1592,6 +1592,9 @@ fi
 %endif
 
 %changelog
+* Thu Apr 02 2020 Björn Esser <besser82@fedoraproject.org> - 3:10.4.12-5
+- Fix string quoting for rpm >= 4.16
+
 * Thu Mar 26 2020 Jitka Plesnikova <jplesnik@redhat.com> - 10.4.12-4
 - Add perl dependencies needed for tests
 
