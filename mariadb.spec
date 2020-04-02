@@ -39,7 +39,7 @@
 #   https://mariadb.com/kb/en/library/about-myrocks-for-mariadb/
 #   RocksDB engine is available only for x86_64
 #   RocksDB may be built with jemalloc, if specified in CMake
-%if %_arch == x86_64 && 0%{?fedora}
+%if "%_arch" == "x86_64" && 0%{?fedora}
 %bcond_without tokudb
 %bcond_without mroonga
 %bcond_without rocksdb
