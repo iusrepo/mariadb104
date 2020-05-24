@@ -147,7 +147,7 @@
 
 Name:             mariadb
 Version:          10.4.12
-Release:          5%{?with_debug:.debug}%{?dist}
+Release:          6%{?with_debug:.debug}%{?dist}
 Epoch:            3
 
 Summary:          A very fast and robust SQL database server
@@ -1074,7 +1074,7 @@ unlink %{buildroot}%{_mandir}/man1/mariadb_config.1*
 # This files are already included in mariadb-connector-c
 rm %{buildroot}%{_includedir}/mysql/mysql_version.h
 rm %{buildroot}%{_includedir}/mysql/{errmsg.h,ma_list.h,ma_pvio.h,mariadb_com.h,\
-mariadb_ctype.h,mariadb_dyncol.h,mariadb_stmt.h,mariadb_version.h,ma_tls.h,mysqld_error.h,mysql.h}
+mariadb_ctype.h,mariadb_dyncol.h,mariadb_stmt.h,mariadb_version.h,ma_tls.h,mysqld_error.h,mysql.h,mariadb_rpl.h}
 rm -r %{buildroot}%{_includedir}/mysql/{mariadb,mysql}
 %endif
 
@@ -1592,6 +1592,9 @@ fi
 %endif
 
 %changelog
+* Sun May 24 2020 Lukas Javorsky <ljavorsk@redhat.com> - 3:10.4.12-6
+- Remove mariadb_rpl.h from includedir to prevent conflict with connector-c's libraries
+
 * Thu Apr 02 2020 Björn Esser <besser82@fedoraproject.org> - 3:10.4.12-5
 - Fix string quoting for rpm >= 4.16
 
