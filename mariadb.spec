@@ -146,8 +146,8 @@
 %global sameevr   %{epoch}:%{version}-%{release}
 
 Name:             mariadb
-Version:          10.4.12
-Release:          6%{?with_debug:.debug}%{?dist}
+Version:          10.4.13
+Release:          1%{?with_debug:.debug}%{?dist}
 Epoch:            3
 
 Summary:          A very fast and robust SQL database server
@@ -180,8 +180,6 @@ Source71:         LICENSE.clustercheck
 # https://jira.mariadb.org/browse/MDEV-12646
 Source72:         mariadb-server-galera.te
 
-#   Patch2: Make the python interpretter be configurable
-Patch2:           %{pkgnamepatch}-pythonver.patch
 #   Patch4: Red Hat distributions specific logrotate fix
 #   it would be big unexpected change, if we start shipping it now. Better wait for MariaDB 10.2
 Patch4:           %{pkgnamepatch}-logrotate.patch
@@ -697,7 +695,6 @@ find . -name "*.jar" -type f -exec rm --verbose -f {} \;
 
 rm -rf libmariadb/unittest
 
-%patch2 -p1
 %patch4 -p1
 %patch7 -p1
 %patch9 -p1
@@ -939,16 +936,13 @@ rm scripts/my.cnf
 # use different config file name for each variant of server (mariadb / mysql)
 mv %{buildroot}%{_sysconfdir}/my.cnf.d/server.cnf %{buildroot}%{_sysconfdir}/my.cnf.d/%{pkg_name}-server.cnf
 
-# Rename sysusers and tmpfiles config files, they should be named after the software they belong to
-mv %{buildroot}%{_sysusersdir}/sysusers.conf %{buildroot}%{_sysusersdir}/%{name}.conf
-
 # remove SysV init script and a symlink to that, we use systemd
 rm %{buildroot}%{_libexecdir}/rcmysql
 # install systemd unit files and scripts for handling server startup
 install -D -p -m 644 scripts/mysql.service %{buildroot}%{_unitdir}/%{daemon_name}.service
 install -D -p -m 644 scripts/mysql@.service %{buildroot}%{_unitdir}/%{daemon_name}@.service
 # Remove the upstream version
-rm %{buildroot}%{_tmpfilesdir}/tmpfiles.conf
+rm %{buildroot}%{_tmpfilesdir}/mariadb.conf
 # Install downstream version
 install -D -p -m 0644 scripts/mysql.tmpfiles.d %{buildroot}%{_tmpfilesdir}/%{name}.conf
 %if 0%{?mysqld_pid_dir:1}
@@ -1026,7 +1020,7 @@ rm %{buildroot}%{logrotateddir}/mysql
 # Remove AppArmor files
 rm -r %{buildroot}%{_datadir}/%{pkg_name}/policy/apparmor
 
-mv %{buildroot}/lib/security %{buildroot}%{_libdir}
+mv %{buildroot}/%{_lib}/security %{buildroot}%{_libdir}
 
 # Disable plugins
 %if %{with gssapi}
@@ -1101,11 +1095,7 @@ rm %{buildroot}%{_mandir}/man1/mysql{access,admin,binlog,check,dump,_find_rows,i
 rm %{buildroot}%{_mandir}/man1/mariadb-{access,admin,binlog,check,dump,find-rows,import,plugin,show,slap,waitpid}.1*
 %endif
 
-%if %{without tokudb}
-# because upstream ships manpages for tokudb even on architectures that tokudb doesn't support
-rm %{buildroot}%{_mandir}/man1/tokuftdump.1*
-rm %{buildroot}%{_mandir}/man1/tokuft_logprint.1*
-%else
+%if %{with tokudb}
 %if 0%{?fedora} || 0%{?rhel} > 7
 # Move the upstream file to the correct location
 mkdir -p %{buildroot}%{_unitdir}/mariadb.service.d
@@ -1592,6 +1582,9 @@ fi
 %endif
 
 %changelog
+* Fri Jun 05 2020 Michal Schorm <mschorm@redhat.com> - 10.4.13-1
+- Rebase to 10.4.13
+
 * Sun May 24 2020 Lukas Javorsky <ljavorsk@redhat.com> - 3:10.4.12-6
 - Remove mariadb_rpl.h from includedir to prevent conflict with connector-c's libraries
 
