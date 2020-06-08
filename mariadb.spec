@@ -11,7 +11,7 @@
 # The last version on which the full testsuite has been run
 # In case of further rebuilds of that version, don't require full testsuite to be run
 # run only "main" suite
-%global last_tested_version 10.4.12
+%global last_tested_version 10.4.13
 # Set to 1 to force run the testsuite even if it was already tested in current version
 %global force_run_testsuite 0
 
@@ -39,7 +39,7 @@
 #   https://mariadb.com/kb/en/library/about-myrocks-for-mariadb/
 #   RocksDB engine is available only for x86_64
 #   RocksDB may be built with jemalloc, if specified in CMake
-%if %_arch == x86_64 && 0%{?fedora}
+%ifarch x86_64 && 0%{?fedora}
 %bcond_without tokudb
 %bcond_without mroonga
 %bcond_without rocksdb
@@ -98,8 +98,9 @@
 
 
 
-# MariaDB 10.0 and later requires pcre >= 8.35, otherwise we need to use
+# MariaDB 10.1.39 and later requires pcre >= 8.43, otherwise we need to use
 # the bundled library, since the package cannot be build with older version
+#   https://mariadb.com/kb/en/pcre/
 %if 0%{?fedora} || 0%{?rhel} > 7
 %bcond_without unbundled_pcre
 %else
@@ -146,8 +147,8 @@
 %global sameevr   %{epoch}:%{version}-%{release}
 
 Name:             mariadb
-Version:          10.4.12
-Release:          3%{?with_debug:.debug}%{?dist}
+Version:          10.4.13
+Release:          1%{?with_debug:.debug}%{?dist}
 Epoch:            3
 
 Summary:          A very fast and robust SQL database server
@@ -180,8 +181,6 @@ Source71:         LICENSE.clustercheck
 # https://jira.mariadb.org/browse/MDEV-12646
 Source72:         mariadb-server-galera.te
 
-#   Patch2: Make the python interpretter be configurable
-Patch2:           %{pkgnamepatch}-pythonver.patch
 #   Patch4: Red Hat distributions specific logrotate fix
 #   it would be big unexpected change, if we start shipping it now. Better wait for MariaDB 10.2
 Patch4:           %{pkgnamepatch}-logrotate.patch
@@ -225,7 +224,7 @@ BuildRequires:    bison bison-devel
 # auth_pam.so plugin will be build if pam-devel is installed
 BuildRequires:    pam-devel
 # use either new enough version of pcre or provide bundles(pcre)
-%{?with_unbundled_pcre:BuildRequires: pcre-devel >= 8.35 pkgconf}
+%{?with_unbundled_pcre:BuildRequires: pcre-devel >= 8.43 pkgconf}
 %{!?with_unbundled_pcre:Provides: bundled(pcre) = %{pcre_bundled_version}}
 # Few utilities needs Perl
 %if 0%{?fedora} || 0%{?rhel} > 7
@@ -237,19 +236,39 @@ BuildRequires:    python3
 # Tests requires time and ps and some perl modules
 BuildRequires:    procps
 BuildRequires:    time
+BuildRequires:    perl(base)
+BuildRequires:    perl(Cwd)
+BuildRequires:    perl(Data::Dumper)
+BuildRequires:    perl(English)
 BuildRequires:    perl(Env)
+BuildRequires:    perl(Errno)
 BuildRequires:    perl(Exporter)
 BuildRequires:    perl(Fcntl)
+BuildRequires:    perl(File::Basename)
+BuildRequires:    perl(File::Copy)
+BuildRequires:    perl(File::Find)
+BuildRequires:    perl(File::Spec)
+BuildRequires:    perl(File::Spec::Functions)
 BuildRequires:    perl(File::Temp)
-BuildRequires:    perl(Data::Dumper)
 BuildRequires:    perl(Getopt::Long)
+BuildRequires:    perl(IO::File)
+BuildRequires:    perl(IO::Handle)
+BuildRequires:    perl(IO::Select)
+BuildRequires:    perl(IO::Socket)
+BuildRequires:    perl(IO::Socket::INET)
 BuildRequires:    perl(IPC::Open3)
+BuildRequires:    perl(lib)
 BuildRequires:    perl(Memoize)
+BuildRequires:    perl(POSIX)
 BuildRequires:    perl(Socket)
+BuildRequires:    perl(strict)
+BuildRequires:    perl(Symbol)
 BuildRequires:    perl(Sys::Hostname)
+BuildRequires:    perl(Term::ANSIColor)
 BuildRequires:    perl(Test::More)
 BuildRequires:    perl(Time::HiRes)
-BuildRequires:    perl(Symbol)
+BuildRequires:    perl(Time::localtime)
+BuildRequires:    perl(warnings)
 # for running some openssl tests rhbz#1189180
 BuildRequires:    openssl openssl-devel
 
@@ -674,10 +693,16 @@ sources.
 
 # Remove JAR files that upstream puts into tarball
 find . -name "*.jar" -type f -exec rm --verbose -f {} \;
-
+# Remove testsuite for the mariadb-connector-c
 rm -rf libmariadb/unittest
+# Remove python scripts remains from tokudb upstream (those files are not used anyway)
+rm -r storage/tokudb/mysql-test/tokudb/t/*.py
+%if %{without rocksdb}
+rm -r storage/rocksdb/
+%endif
 
-%patch2 -p1
+
+
 %patch4 -p1
 %patch7 -p1
 %patch9 -p1
@@ -735,14 +760,6 @@ then
   echo "\n Warning: Error: Bundled PCRE version is not correct. \n\tSystem version number:$pcre_system_version \n\tUpstream version number: $pcre_maj.$pcre_min\n"
 fi
 %endif
-
-
-%if %{without rocksdb}
-rm -r storage/rocksdb/
-%endif
-
-# Remove python scripts remains from tokudb upstream (those files are not used anyway)
-rm -r storage/tokudb/mysql-test/tokudb/t/*.py
 
 
 
@@ -919,16 +936,13 @@ rm scripts/my.cnf
 # use different config file name for each variant of server (mariadb / mysql)
 mv %{buildroot}%{_sysconfdir}/my.cnf.d/server.cnf %{buildroot}%{_sysconfdir}/my.cnf.d/%{pkg_name}-server.cnf
 
-# Rename sysusers and tmpfiles config files, they should be named after the software they belong to
-mv %{buildroot}%{_sysusersdir}/sysusers.conf %{buildroot}%{_sysusersdir}/%{name}.conf
-
 # remove SysV init script and a symlink to that, we use systemd
 rm %{buildroot}%{_libexecdir}/rcmysql
 # install systemd unit files and scripts for handling server startup
 install -D -p -m 644 scripts/mysql.service %{buildroot}%{_unitdir}/%{daemon_name}.service
 install -D -p -m 644 scripts/mysql@.service %{buildroot}%{_unitdir}/%{daemon_name}@.service
 # Remove the upstream version
-rm %{buildroot}%{_tmpfilesdir}/tmpfiles.conf
+rm %{buildroot}%{_tmpfilesdir}/mariadb.conf
 # Install downstream version
 install -D -p -m 0644 scripts/mysql.tmpfiles.d %{buildroot}%{_tmpfilesdir}/%{name}.conf
 %if 0%{?mysqld_pid_dir:1}
@@ -1006,7 +1020,7 @@ rm %{buildroot}%{logrotateddir}/mysql
 # Remove AppArmor files
 rm -r %{buildroot}%{_datadir}/%{pkg_name}/policy/apparmor
 
-mv %{buildroot}/lib/security %{buildroot}%{_libdir}
+mv %{buildroot}/%{_lib}/security %{buildroot}%{_libdir}
 
 # Disable plugins
 %if %{with gssapi}
@@ -1054,7 +1068,7 @@ unlink %{buildroot}%{_mandir}/man1/mariadb_config.1*
 # This files are already included in mariadb-connector-c
 rm %{buildroot}%{_includedir}/mysql/mysql_version.h
 rm %{buildroot}%{_includedir}/mysql/{errmsg.h,ma_list.h,ma_pvio.h,mariadb_com.h,\
-mariadb_ctype.h,mariadb_dyncol.h,mariadb_stmt.h,mariadb_version.h,ma_tls.h,mysqld_error.h,mysql.h}
+mariadb_ctype.h,mariadb_dyncol.h,mariadb_stmt.h,mariadb_version.h,ma_tls.h,mysqld_error.h,mysql.h,mariadb_rpl.h}
 rm -r %{buildroot}%{_includedir}/mysql/{mariadb,mysql}
 %endif
 
@@ -1081,11 +1095,7 @@ rm %{buildroot}%{_mandir}/man1/mysql{access,admin,binlog,check,dump,_find_rows,i
 rm %{buildroot}%{_mandir}/man1/mariadb-{access,admin,binlog,check,dump,find-rows,import,plugin,show,slap,waitpid}.1*
 %endif
 
-%if %{without tokudb}
-# because upstream ships manpages for tokudb even on architectures that tokudb doesn't support
-rm %{buildroot}%{_mandir}/man1/tokuftdump.1*
-rm %{buildroot}%{_mandir}/man1/tokuft_logprint.1*
-%else
+%if %{with tokudb}
 %if 0%{?fedora} || 0%{?rhel} > 7
 # Move the upstream file to the correct location
 mkdir -p %{buildroot}%{_unitdir}/mariadb.service.d
@@ -1572,6 +1582,18 @@ fi
 %endif
 
 %changelog
+* Fri Jun 05 2020 Michal Schorm <mschorm@redhat.com> - 10.4.13-1
+- Rebase to 10.4.13
+
+* Sun May 24 2020 Lukas Javorsky <ljavorsk@redhat.com> - 3:10.4.12-6
+- Remove mariadb_rpl.h from includedir to prevent conflict with connector-c's libraries
+
+* Thu Apr 02 2020 Björn Esser <besser82@fedoraproject.org> - 3:10.4.12-5
+- Fix string quoting for rpm >= 4.16
+
+* Thu Mar 26 2020 Jitka Plesnikova <jplesnik@redhat.com> - 10.4.12-4
+- Add perl dependencies needed for tests
+
 * Mon Mar 16 2020 Michal Schorm <mschorm@redhat.com> - 10.4.12-3
 - Rebase mariadb-connector-c git submodule to commit fbf1db6
   For fix: https://jira.mariadb.org/browse/CONC-441
