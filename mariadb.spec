@@ -39,7 +39,7 @@
 #   https://mariadb.com/kb/en/library/about-myrocks-for-mariadb/
 #   RocksDB engine is available only for x86_64
 #   RocksDB may be built with jemalloc, if specified in CMake
-%if "%_arch" == "x86_64" && 0%{?fedora}
+%ifarch x86_64 && 0%{?fedora}
 %bcond_without tokudb
 %bcond_without mroonga
 %bcond_without rocksdb
@@ -98,8 +98,9 @@
 
 
 
-# MariaDB 10.0 and later requires pcre >= 8.35, otherwise we need to use
+# MariaDB 10.1.39 and later requires pcre >= 8.43, otherwise we need to use
 # the bundled library, since the package cannot be build with older version
+#   https://mariadb.com/kb/en/pcre/
 %if 0%{?fedora} || 0%{?rhel} > 7
 %bcond_without unbundled_pcre
 %else
@@ -223,7 +224,7 @@ BuildRequires:    bison bison-devel
 # auth_pam.so plugin will be build if pam-devel is installed
 BuildRequires:    pam-devel
 # use either new enough version of pcre or provide bundles(pcre)
-%{?with_unbundled_pcre:BuildRequires: pcre-devel >= 8.35 pkgconf}
+%{?with_unbundled_pcre:BuildRequires: pcre-devel >= 8.43 pkgconf}
 %{!?with_unbundled_pcre:Provides: bundled(pcre) = %{pcre_bundled_version}}
 # Few utilities needs Perl
 %if 0%{?fedora} || 0%{?rhel} > 7
@@ -692,8 +693,15 @@ sources.
 
 # Remove JAR files that upstream puts into tarball
 find . -name "*.jar" -type f -exec rm --verbose -f {} \;
-
+# Remove testsuite for the mariadb-connector-c
 rm -rf libmariadb/unittest
+# Remove python scripts remains from tokudb upstream (those files are not used anyway)
+rm -r storage/tokudb/mysql-test/tokudb/t/*.py
+%if %{without rocksdb}
+rm -r storage/rocksdb/
+%endif
+
+
 
 %patch4 -p1
 %patch7 -p1
@@ -752,14 +760,6 @@ then
   echo "\n Warning: Error: Bundled PCRE version is not correct. \n\tSystem version number:$pcre_system_version \n\tUpstream version number: $pcre_maj.$pcre_min\n"
 fi
 %endif
-
-
-%if %{without rocksdb}
-rm -r storage/rocksdb/
-%endif
-
-# Remove python scripts remains from tokudb upstream (those files are not used anyway)
-rm -r storage/tokudb/mysql-test/tokudb/t/*.py
 
 
 
