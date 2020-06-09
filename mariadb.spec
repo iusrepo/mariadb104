@@ -190,8 +190,6 @@ Patch7:           %{pkgnamepatch}-scripts.patch
 Patch9:           %{pkgnamepatch}-ownsetup.patch
 #   Patch10: Fix cipher name in the SSL Cipher name test
 Patch10:          %{pkgnamepatch}-ssl-cipher-tests.patch
-#   Patch11: Use PCDIR CMake option, if configured
-Patch11:          %{pkgnamepatch}-pcdir.patch
 #   Patch13: Fix Spider code on armv7hl; https://jira.mariadb.org/browse/MDEV-18737
 Patch13:          %{pkgnamepatch}-spider_on_armv7hl.patch
 #   Patch15:  Add option to edit groonga's and groonga-normalizer-mysql install path
@@ -707,7 +705,6 @@ rm -r storage/rocksdb/
 %patch7 -p1
 %patch9 -p1
 %patch10 -p1
-%patch11 -p1
 %patch13 -p1
 %patch15 -p1
 %patch16 -p1

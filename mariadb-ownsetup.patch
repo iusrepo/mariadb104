@@ -1,16 +1,13 @@
-diff -up mariadb-10.1.8/support-files/CMakeLists.txt.p9 mariadb-10.1.8/support-files/CMakeLists.txt
---- mariadb-10.2.32/support-files/CMakeLists.txt	2020-05-08 13:45:27.000000000 +0200
-+++ mariadb-10.2.32/support-files/CMakeLists.txt_pacthed	2020-05-13 10:11:30.884190396 +0200
-@@ -100,7 +100,8 @@ IF(UNIX)
+--- mariadb-10.3.23/support-files/CMakeLists.txt	2020-06-07 22:02:16.564626222 +0200
++++ mariadb-10.3.23/support-files/CMakeLists.txt_patched	2020-06-07 22:01:17.180909018 +0200
+@@ -91,6 +91,7 @@ IF(UNIX)
    ENDIF()
  
    CONFIGURE_FILE(mariadb.pc.in ${CMAKE_CURRENT_BINARY_DIR}/mariadb.pc @ONLY)
--  INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/mariadb.pc DESTINATION ${INSTALL_LIBDIR}/pkgconfig COMPONENT Development)
 +  CONFIGURE_FILE(rpm/server.cnf ${CMAKE_CURRENT_BINARY_DIR}/rpm/server.cnf @ONLY)
-+  INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/mariadb.pc DESTINATION ${INSTALL_SHAREDIR}/pkgconfig COMPONENT Development)
+   INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/mariadb.pc DESTINATION ${INSTALL_LIBDIR}/pkgconfig COMPONENT Development)
  
    INSTALL(FILES mysql.m4 DESTINATION ${INSTALL_SHAREDIR}/aclocal COMPONENT Development)
-   
 diff -up mariadb-10.0.15/support-files/rpm/server.cnf.ownsetup mariadb-10.0.15/support-files/rpm/server.cnf
 --- mariadb-10.0.15/support-files/rpm/server.cnf.ownsetup	2015-01-24 23:55:55.110063592 +0100
 +++ mariadb-10.0.15/support-files/rpm/server.cnf	2015-01-24 23:57:42.308114387 +0100
