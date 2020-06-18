@@ -148,7 +148,7 @@
 
 Name:             mariadb
 Version:          10.4.13
-Release:          1%{?with_debug:.debug}%{?dist}
+Release:          2%{?with_debug:.debug}%{?dist}
 Epoch:            3
 
 Summary:          A very fast and robust SQL database server
@@ -299,7 +299,7 @@ Suggests:         %{name}-server%{?_isa} = %{sameevr}
 %{?with_conflicts:Conflicts:        community-mysql}
 
 # Filtering: https://docs.fedoraproject.org/en-US/packaging-guidelines/AutoProvidesAndRequiresFiltering/
-%global __requires_exclude ^perl\\((hostnames|lib::mtr|lib::v1|mtr_|My::)
+%global __requires_exclude ^perl\\((hostnames|lib::mtr|lib::v1|mtr_|My::|wsrep)
 %global __provides_exclude_from ^(%{_datadir}/(mysql|mysql-test)/.*|%{_libdir}/%{pkg_name}/plugin/.*\\.so)$
 
 # Define license macro if not present
@@ -1579,6 +1579,10 @@ fi
 %endif
 
 %changelog
+* Fri Jun 05 2020 Michal Schorm <mschorm@redhat.com> - 10.4.13-2
+- Extend Perl "Requires" filtering to wsrep
+  Resolves: #1845376
+
 * Fri Jun 05 2020 Michal Schorm <mschorm@redhat.com> - 10.4.13-1
 - Rebase to 10.4.13
 
