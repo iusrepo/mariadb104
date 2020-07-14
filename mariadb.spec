@@ -137,10 +137,8 @@
 # Provide mysql names for compatibility
 %if 0%{?fedora}
 %bcond_without mysql_names
-%bcond_without conflicts
 %else
 %bcond_with    mysql_names
-%bcond_with    conflicts
 %endif
 
 # Make long macros shorter
@@ -148,7 +146,7 @@
 
 Name:             mariadb
 Version:          10.4.13
-Release:          2%{?with_debug:.debug}%{?dist}
+Release:          3%{?with_debug:.debug}%{?dist}
 Epoch:            3
 
 Summary:          A very fast and robust SQL database server
@@ -295,8 +293,7 @@ Provides:         mysql-compat-client%{?_isa} = %{sameevr}
 
 Suggests:         %{name}-server%{?_isa} = %{sameevr}
 
-# MySQL (with caps) is upstream's spelling of their own RPMs for mysql
-%{?with_conflicts:Conflicts:        community-mysql}
+Conflicts:        community-mysql
 
 # Filtering: https://docs.fedoraproject.org/en-US/packaging-guidelines/AutoProvidesAndRequiresFiltering/
 %global __requires_exclude ^perl\\((hostnames|lib::mtr|lib::v1|mtr_|My::|wsrep)
@@ -453,7 +450,7 @@ Provides:         mysql-server%{?_isa} = %{sameevr}
 Provides:         mysql-compat-server = %{sameevr}
 Provides:         mysql-compat-server%{?_isa} = %{sameevr}
 %endif
-%{?with_conflicts:Conflicts:        community-mysql-server}
+Conflicts:        community-mysql-server
 
 # Bench subpackage has been deprecated in F32
 Obsoletes: %{name}-bench <= %{sameevr}
@@ -581,6 +578,7 @@ Requires:         %{name}-server%{?_isa} = %{sameevr}
 %if %{with mysql_names}
 Provides:         mysql-perl = %{sameevr}
 %endif
+Conflicts:        community-mysql-server
 # mysqlhotcopy needs DBI/DBD support
 Requires:         perl(DBI) perl(DBD::mysql)
 
@@ -602,7 +600,7 @@ Requires:         mariadb-connector-c-devel >= 3.0
 Provides:         mysql-devel = %{sameevr}
 Provides:         mysql-devel%{?_isa} = %{sameevr}
 %endif
-%{?with_conflicts:Conflicts:        community-mysql-devel}
+Conflicts:        community-mysql-devel
 
 %description      devel
 MariaDB is a multi-user, multi-threaded SQL database server.
@@ -645,7 +643,7 @@ Requires:         libaio-devel
 Provides:         mysql-embedded-devel = %{sameevr}
 Provides:         mysql-embedded-devel%{?_isa} = %{sameevr}
 %endif
-%{?with_conflicts:Conflicts:        community-mysql-embedded-devel}
+Conflicts:        community-mysql-embedded-devel
 
 %description      embedded-devel
 MariaDB is a multi-user, multi-threaded SQL database server.
@@ -672,7 +670,7 @@ Requires:         perl(Socket)
 Requires:         perl(Sys::Hostname)
 Requires:         perl(Test::More)
 Requires:         perl(Time::HiRes)
-%{?with_conflicts:Conflicts:        community-mysql-test}
+Conflicts:        community-mysql-test
 %if %{with mysql_names}
 Provides:         mysql-test = %{sameevr}
 Provides:         mysql-test%{?_isa} = %{sameevr}
@@ -1579,6 +1577,11 @@ fi
 %endif
 
 %changelog
+* Tue Jul 14 2020 Michal Schorm <mschorm@redhat.com> - 10.4.13-3
+- Make conflicts between corresponding mariadb and mysql packages explicit
+- Get rid of the Conflicts macro, it was intended to mark conflicts with
+  *upstream* packages
+
 * Fri Jun 05 2020 Michal Schorm <mschorm@redhat.com> - 10.4.13-2
 - Extend Perl "Requires" filtering to wsrep
   Resolves: #1845376
