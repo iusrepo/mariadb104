@@ -1,5 +1,5 @@
 # Prefix that is used for patches
-%global pkg_name %{name}
+%global pkg_name mariadb
 %global pkgnamepatch mariadb
 
 # Regression tests may take a long time (many cores recommended), skip them by
@@ -15,12 +15,12 @@
 # Set to 1 to force run the testsuite even if it was already tested in current version
 %global force_run_testsuite 0
 
-# Aditional SELinux rules
-%global require_mysql_selinux 1
-
 # In f20+ use unversioned docdirs, otherwise the old versioned one
-%global _pkgdocdirname %{pkg_name}%{!?_pkgdocdir:-%{version}}
-%{!?_pkgdocdir: %global _pkgdocdir %{_docdir}/%{pkg_name}-%{version}}
+%if 0%{?fedora} >= 20 || 0%{?rhel} >= 8
+%global _pkgdocdirname %{name}
+%else
+%global _pkgdocdirname %{name}-%{version}
+%endif
 
 # By default, patch(1) creates backup files when chunks apply with offsets.
 # Turn that off to ensure such files don't get included in RPMs (cf bz#884755).
@@ -39,7 +39,8 @@
 #   https://mariadb.com/kb/en/library/about-myrocks-for-mariadb/
 #   RocksDB engine is available only for x86_64
 #   RocksDB may be built with jemalloc, if specified in CMake
-%ifarch x86_64 && 0%{?fedora}
+%ifarch x86_64
+%if 0%{?fedora}
 %bcond_without tokudb
 %bcond_without mroonga
 %bcond_without rocksdb
@@ -47,6 +48,7 @@
 %bcond_with tokudb
 %bcond_with mroonga
 %bcond_with rocksdb
+%endif
 %endif
 
 # The Open Query GRAPH engine (OQGRAPH) is a computation engine allowing
@@ -84,10 +86,16 @@
 # When there is already another package that ships /etc/my.cnf,
 # rather include it than ship the file again, since conflicts between
 # those files may create issues
-%if 0%{?fedora} || 0%{?rhel} > 7
 %bcond_with config
-%else
-%bcond_without config
+
+# In RHEL7, the stock mariadb-libs package contains both my.cnf and
+# libmysqlclient.  In MariaDB 10.2 libmysqlclient was renamed to libmariadb.
+# In order to re-use the stock my.cnf file from mariadb-libs, we must make
+# %%{name}-libs parallel installable with stock mariadb-libs by removing all
+# references to libmysqlclient.  This avoids the need for a separate compat
+# libmysqlclient package.
+%if %{defined rhel} && %{without config}
+%bcond_without parallel_libs
 %endif
 
 # For deep debugging we need to build binaries with extra debug info
@@ -105,7 +113,7 @@
 %bcond_without unbundled_pcre
 %else
 %bcond_with unbundled_pcre
-%global pcre_bundled_version 8.43
+%global pcre_bundled_version 8.44
 %endif
 
 # Use main python interpretter version
@@ -116,7 +124,7 @@
 %endif
 
 # Include systemd files
-%global daemon_name %{name}
+%global daemon_name mariadb
 %global daemon_no_prefix %{pkg_name}
 %global mysqld_pid_dir mariadb
 
@@ -144,9 +152,9 @@
 # Make long macros shorter
 %global sameevr   %{epoch}:%{version}-%{release}
 
-Name:             mariadb
+Name:             mariadb104
 Version:          10.4.13
-Release:          3%{?with_debug:.debug}%{?dist}
+Release:          4%{?with_debug:.debug}%{?dist}
 Epoch:            3
 
 Summary:          A very fast and robust SQL database server
@@ -154,7 +162,7 @@ URL:              http://mariadb.org
 # Exceptions allow client libraries to be linked with most open source SW, not only GPL code.  See README.mysql-license
 License:          GPLv2 with exceptions and LGPLv2 and BSD
 
-Source0:          https://downloads.mariadb.org/interstitial/mariadb-%{version}/source/mariadb-%{version}.tar.gz
+Source0:          https://mirrors.osuosl.org/pub/mariadb/mariadb-%{version}/source/mariadb-%{version}.tar.gz
 Source2:          mysql_config_multilib.sh
 Source3:          my.cnf.in
 Source5:          README.mysql-cnf
@@ -291,16 +299,17 @@ Provides:         mysql-compat-client = %{sameevr}
 Provides:         mysql-compat-client%{?_isa} = %{sameevr}
 %endif
 
-Suggests:         %{name}-server%{?_isa} = %{sameevr}
-
 Conflicts:        community-mysql
+
+# safe replacement
+Provides:         mariadb = %{sameevr}
+Provides:         mariadb%{?_isa} = %{sameevr}
+Conflicts:        mariadb < %{sameevr}
 
 # Filtering: https://docs.fedoraproject.org/en-US/packaging-guidelines/AutoProvidesAndRequiresFiltering/
 %global __requires_exclude ^perl\\((hostnames|lib::mtr|lib::v1|mtr_|My::|wsrep)
 %global __provides_exclude_from ^(%{_datadir}/(mysql|mysql-test)/.*|%{_libdir}/%{pkg_name}/plugin/.*\\.so)$
 
-# Define license macro if not present
-%{!?_licensedir:%global license %doc}
 
 %description
 MariaDB is a community developed branch of MySQL - a multi-user, multi-threaded
@@ -351,11 +360,13 @@ package itself.
 %if %{with common}
 %package          common
 Summary:          The shared files required by server and client
+%if %{with parallel_libs}
+# The actual requirement here is /etc/my.cnf, but that is provided by both
+# mariadb-libs and mariadb101u-config.  Explicitly require the former to avoid
+# resolution errors.
+Requires:         mariadb-libs%{?_isa} < 1:10
+%else
 Requires:         %{_sysconfdir}/my.cnf
-
-
-%if %{without clibrary}
-Obsoletes: %{name}-libs <= %{sameevr}
 %endif
 
 %description      common
@@ -383,7 +394,11 @@ Requires:         %{name}-common%{?_isa} = %{sameevr}
 Requires:         %{name}-server%{?_isa} = %{sameevr}
 Requires:         galera >= 26.4.3
 Requires(post):   libselinux-utils
+%if 0%{?fedora} >= 23 || 0%{?rhel} >= 8
 Requires(post):   policycoreutils-python-utils
+%else
+Requires(post):   policycoreutils-python
+%endif
 # wsrep requirements
 Requires:         lsof
 # Default wsrep_sst_method
@@ -405,32 +420,20 @@ Summary:          The MariaDB server and related files
 %if %{with mysql_names}
 Requires:         mysql-compat-client%{?_isa}
 Requires:         mysql%{?_isa}
-Recommends:       %{name}%{?_isa}
 %else
 Requires:         %{name}%{?_isa}
 %endif
 Requires:         %{name}-common%{?_isa} = %{sameevr}
 Requires:         %{name}-errmsg%{?_isa} = %{sameevr}
-Recommends:       %{name}-server-utils%{?_isa} = %{sameevr}
-Recommends:       %{name}-backup%{?_isa} = %{sameevr}
-%{?with_cracklib:Recommends:   %{name}-cracklib-password-check%{?_isa} = %{sameevr}}
-%{?with_gssapi:Recommends:     %{name}-gssapi-server%{?_isa} = %{sameevr}}
-%{?with_rocksdb:Suggests:      %{name}-rocksdb-engine%{?_isa} = %{sameevr}}
-%{?with_tokudb:Suggests:       %{name}-tokudb-engine%{?_isa} = %{sameevr}}
-%{?with_sphinx:Suggests:       %{name}-sphinx-engine%{?_isa} = %{sameevr}}
-%{?with_oqgraph:Suggests:      %{name}-oqgraph-engine%{?_isa} = %{sameevr}}
-%{?with_connect:Suggests:      %{name}-connect-engine%{?_isa} = %{sameevr}}
 
-Suggests:         mytop
-Suggests:         logrotate
-
+%if %{with parallel_libs}
+# The actual requirement here is /etc/my.cnf, but that is provided by both
+# mariadb-libs and mariadb101u-config.  Explicitly require the former to avoid
+# resolution errors.
+Requires:         mariadb-libs%{?_isa} < 1:10
+%else
 Requires:         %{_sysconfdir}/my.cnf
 Requires:         %{_sysconfdir}/my.cnf.d
-
-# Aditional SELinux rules (common for MariaDB & MySQL) shipped in a separate package
-# For cases, where we want to fix a SELinux issues in MariaDB sooner than patched selinux-policy-targeted package is released
-%if %require_mysql_selinux
-Requires:         (mysql-selinux if selinux-policy-targeted)
 %endif
 
 # for fuser in mysql-check-socket
@@ -451,9 +454,10 @@ Provides:         mysql-compat-server = %{sameevr}
 Provides:         mysql-compat-server%{?_isa} = %{sameevr}
 %endif
 Conflicts:        community-mysql-server
-
-# Bench subpackage has been deprecated in F32
-Obsoletes: %{name}-bench <= %{sameevr}
+# safe replacement
+Provides:         mariadb-server = %{sameevr}
+Provides:         mariadb-server%{?_isa} = %{sameevr}
+Conflicts:        mariadb-server < %{sameevr}
 
 %description      server
 MariaDB is a multi-user, multi-threaded SQL database server. It is a
@@ -601,6 +605,10 @@ Provides:         mysql-devel = %{sameevr}
 Provides:         mysql-devel%{?_isa} = %{sameevr}
 %endif
 Conflicts:        community-mysql-devel
+# safe replacement
+Provides:         mariadb-devel = %{sameevr}
+Provides:         mariadb-devel%{?_isa} = %{sameevr}
+Conflicts:        mariadb-devel < %{sameevr}
 
 %description      devel
 MariaDB is a multi-user, multi-threaded SQL database server.
@@ -625,6 +633,10 @@ Requires:         %{name}-errmsg%{?_isa} = %{sameevr}
 Provides:         mysql-embedded = %{sameevr}
 Provides:         mysql-embedded%{?_isa} = %{sameevr}
 %endif
+# safe replacement
+Provides:         mariadb-embedded = %{sameevr}
+Provides:         mariadb-embedded%{?_isa} = %{sameevr}
+Conflicts:        mariadb-embedded < %{sameevr}
 
 %description      embedded
 MariaDB is a multi-user, multi-threaded SQL database server. This
@@ -644,6 +656,10 @@ Provides:         mysql-embedded-devel = %{sameevr}
 Provides:         mysql-embedded-devel%{?_isa} = %{sameevr}
 %endif
 Conflicts:        community-mysql-embedded-devel
+# safe replacement
+Provides:         mariadb-embedded-devel = %{sameevr}
+Provides:         mariadb-embedded-devel%{?_isa} = %{sameevr}
+Conflicts:        mariadb-embedded-devel < %{sameevr}
 
 %description      embedded-devel
 MariaDB is a multi-user, multi-threaded SQL database server.
@@ -675,6 +691,10 @@ Conflicts:        community-mysql-test
 Provides:         mysql-test = %{sameevr}
 Provides:         mysql-test%{?_isa} = %{sameevr}
 %endif
+# safe replacement
+Provides:         mariadb-test = %{sameevr}
+Provides:         mariadb-test%{?_isa} = %{sameevr}
+Conflicts:        mariadb-test < %{sameevr}
 
 %description      test
 MariaDB is a multi-user, multi-threaded SQL database server.
@@ -834,8 +854,8 @@ export CFLAGS CXXFLAGS CPPFLAGS
          -DMYSQL_DATADIR="%{dbdatadir}" \
          -DMYSQL_UNIX_ADDR="/var/lib/mysql/mysql.sock" \
          -DTMPDIR=/var/tmp \
-         -DGRN_DATA_DIR=share/%{name}-server/groonga \
-         -DGROONGA_NORMALIZER_MYSQL_PROJECT_NAME=%{name}-server/groonga-normalizer-mysql \
+         -DGRN_DATA_DIR=share/%{daemon_name}-server/groonga \
+         -DGROONGA_NORMALIZER_MYSQL_PROJECT_NAME=%{daemon_name}-server/groonga-normalizer-mysql \
          -DENABLED_LOCAL_INFILE=ON \
          -DENABLE_DTRACE=ON \
          -DSECURITY_HARDENED=ON \
@@ -939,9 +959,9 @@ install -D -p -m 644 scripts/mysql@.service %{buildroot}%{_unitdir}/%{daemon_nam
 # Remove the upstream version
 rm %{buildroot}%{_tmpfilesdir}/mariadb.conf
 # Install downstream version
-install -D -p -m 0644 scripts/mysql.tmpfiles.d %{buildroot}%{_tmpfilesdir}/%{name}.conf
+install -D -p -m 0644 scripts/mysql.tmpfiles.d %{buildroot}%{_tmpfilesdir}/%{daemon_name}.conf
 %if 0%{?mysqld_pid_dir:1}
-echo "d %{pidfiledir} 0755 mysql mysql -" >>%{buildroot}%{_tmpfilesdir}/%{name}.conf
+echo "d %{pidfiledir} 0755 mysql mysql -" >>%{buildroot}%{_tmpfilesdir}/%{daemon_name}.conf
 %endif
 
 # helper scripts for service starting
@@ -1078,6 +1098,11 @@ unlink %{buildroot}%{_libdir}/libmysqlclient_r.so
 %endif
 %endif
 
+%if %{with parallel_libs}
+unlink %{buildroot}%{_libdir}/libmysqlclient.so
+unlink %{buildroot}%{_libdir}/libmysqlclient_r.so
+%endif
+
 %if %{without client}
 rm %{buildroot}%{_bindir}/msql2mysql
 rm %{buildroot}%{_bindir}/{mysql,mariadb}
@@ -1129,7 +1154,6 @@ rm %{buildroot}%{_mandir}/man1/{mysql-test-run,mysql-stress-test}.pl.1*
 %endif
 
 %if %{without galera}
-rm %{buildroot}%{_sysconfdir}/my.cnf.d/galera.cnf
 rm %{buildroot}%{_sysconfdir}/sysconfig/clustercheck
 rm %{buildroot}%{_bindir}/{clustercheck,galera_new_cluster}
 rm %{buildroot}%{_bindir}/galera_recovery
@@ -1210,6 +1234,14 @@ export MTR_BUILD_THREAD=%{__isa_bits}
 /usr/sbin/useradd -M -N -g mysql -o -r -d %{mysqluserhome} -s /sbin/nologin \
   -c "MySQL Server" -u 27 mysql >/dev/null 2>&1 || :
 
+%if %{with clibrary}
+%ldconfig_scriptlets libs
+%endif
+
+%if %{with embedded}
+%ldconfig_scriptlets embedded
+%endif
+
 %if %{with galera}
 %post server-galera
 # Allow ports needed for the replication:
@@ -1246,22 +1278,63 @@ fi
 %if %{with client}
 %files
 %{_bindir}/msql2mysql
-%{_bindir}/{mysql,mariadb}
-%{_bindir}/mysql{access,admin,binlog,check,dump,_find_rows,import,_plugin,show,slap,_waitpid}
-%{_bindir}/mariadb-{access,admin,binlog,check,dump,find-rows,import,plugin,show,slap,waitpid}
+%{_bindir}/mysql
+%{_bindir}/mysqlaccess
+%{_bindir}/mysqladmin
+%{_bindir}/mysqlbinlog
+%{_bindir}/mysqlcheck
+%{_bindir}/mysqldump
+%{_bindir}/mysql_find_rows
+%{_bindir}/mysqlimport
+%{_bindir}/mysql_plugin
+%{_bindir}/mysqlshow
+%{_bindir}/mysqlslap
+%{_bindir}/mysql_waitpid
+%{_bindir}/mariadb
+%{_bindir}/mariadb-access
+%{_bindir}/mariadb-admin
+%{_bindir}/mariadb-binlog
+%{_bindir}/mariadb-check
+%{_bindir}/mariadb-dump
+%{_bindir}/mariadb-find-rows
+%{_bindir}/mariadb-import
+%{_bindir}/mariadb-plugin
+%{_bindir}/mariadb-show
+%{_bindir}/mariadb-slap
+%{_bindir}/mariadb-waitpid
 
 %{_mandir}/man1/msql2mysql.1*
-%{_mandir}/man1/{mysql,mariadb}.1*
-%{_mandir}/man1/mysql{access,admin,binlog,check,dump,_find_rows,import,_plugin,show,slap,_waitpid}.1*
-%{_mandir}/man1/mariadb-{access,admin,binlog,check,dump,find-rows,import,plugin,show,slap,waitpid}.1*
+%{_mandir}/man1/mysql.1*
+%{_mandir}/man1/mysqlaccess.1*
+%{_mandir}/man1/mysqladmin.1*
+%{_mandir}/man1/mysqlbinlog.1*
+%{_mandir}/man1/mysqlcheck.1*
+%{_mandir}/man1/mysqldump.1*
+%{_mandir}/man1/mysql_find_rows.1*
+%{_mandir}/man1/mysqlimport.1*
+%{_mandir}/man1/mysql_plugin.1*
+%{_mandir}/man1/mysqlshow.1*
+%{_mandir}/man1/mysqlslap.1*
+%{_mandir}/man1/mysql_waitpid.1*
+%{_mandir}/man1/mariadb.1*
+%{_mandir}/man1/mariadb-access.1*
+%{_mandir}/man1/mariadb-admin.1*
+%{_mandir}/man1/mariadb-binlog.1*
+%{_mandir}/man1/mariadb-check.1*
+%{_mandir}/man1/mariadb-dump.1*
+%{_mandir}/man1/mariadb-find-rows.1*
+%{_mandir}/man1/mariadb-import.1*
+%{_mandir}/man1/mariadb-plugin.1*
+%{_mandir}/man1/mariadb-show.1*
+%{_mandir}/man1/mariadb-slap.1*
+%{_mandir}/man1/mariadb-waitpid.1*
 
 %config(noreplace) %{_sysconfdir}/my.cnf.d/mysql-clients.cnf
 %endif
 
 %if %{with clibrary}
 %files libs
-%exclude %{_libdir}/{libmysqlclient.so.18,libmariadb.so,libmysqlclient.so,libmysqlclient_r.so}
-%{_libdir}/libmariadb.so*
+%{_libdir}/libmariadb.so.3
 %config(noreplace) %{_sysconfdir}/my.cnf.d/client.cnf
 %endif
 
@@ -1329,7 +1402,11 @@ fi
 %files server
 %doc README.mysql-cnf
 
-%{_bindir}/aria_{chk,dump_log,ftdump,pack,read_log}
+%{_bindir}/aria_chk
+%{_bindir}/aria_dump_log
+%{_bindir}/aria_ftdump
+%{_bindir}/aria_pack
+%{_bindir}/aria_read_log
 %{_bindir}/mariadb-service-convert
 %{_bindir}/myisamchk
 %{_bindir}/myisam_ftdump
@@ -1337,9 +1414,14 @@ fi
 %{_bindir}/myisampack
 %{_bindir}/my_print_defaults
 
-%{_bindir}/mysql_{install_db,secure_installation,tzinfo_to_sql}
-%{_bindir}/mariadb-{install-db,secure-installation,tzinfo-to-sql}
-%{_bindir}/{mysqld_,mariadbd-}safe
+%{_bindir}/mysql_install_db
+%{_bindir}/mysql_secure_installation
+%{_bindir}/mysql_tzinfo_to_sql
+%{_bindir}/mysqld_safe
+%{_bindir}/mariadb-install-db
+%{_bindir}/mariadb-secure-installation
+%{_bindir}/mariadb-tzinfo-to-sql
+%{_bindir}/mariadbd-safe
 
 %{_bindir}/innochecksum
 %{_bindir}/replace
@@ -1351,7 +1433,8 @@ fi
 %config(noreplace) %{_sysconfdir}/my.cnf.d/%{pkg_name}-server.cnf
 %config(noreplace) %{_sysconfdir}/my.cnf.d/enable_encryption.preset
 
-%{_libexecdir}/{mysqld,mariadbd}
+%{_libexecdir}/mysqld
+%{_libexecdir}/mariadbd
 
 %{_libdir}/%{pkg_name}/INFO_SRC
 %{_libdir}/%{pkg_name}/INFO_BIN
@@ -1363,9 +1446,11 @@ fi
 %dir %{_libdir}/%{pkg_name}/plugin
 # Change from root:root to mysql:mysql, so it can be accessed by the server
 %attr(0755,mysql,mysql) %dir %{_libdir}/%{pkg_name}/plugin/auth_pam_tool_dir
+%{_libdir}/%{pkg_name}/plugin/auth_pam_tool_dir/auth_pam_tool
 %{_libdir}/security/pam_user_map.so
 %{_sysconfdir}/security/user_map.conf
-%{_libdir}/%{pkg_name}/plugin/*
+%{_libdir}/%{pkg_name}/plugin/*.so
+%{_libdir}/%{pkg_name}/plugin/daemon_example.ini
 %{?with_oqgraph:%exclude %{_libdir}/%{pkg_name}/plugin/ha_oqgraph.so}
 %{?with_connect:%exclude %{_libdir}/%{pkg_name}/plugin/ha_connect.so}
 %{?with_cracklib:%exclude %{_libdir}/%{pkg_name}/plugin/cracklib_password_check.so}
@@ -1378,7 +1463,11 @@ fi
 %exclude %{_libdir}/%{pkg_name}/plugin/mysql_clear_password.so
 %endif
 
-%{_mandir}/man1/aria_{chk,dump_log,ftdump,pack,read_log}.1*
+%{_mandir}/man1/aria_chk.1*
+%{_mandir}/man1/aria_dump_log.1*
+%{_mandir}/man1/aria_ftdump.1*
+%{_mandir}/man1/aria_pack.1*
+%{_mandir}/man1/aria_read_log.1*
 %{_mandir}/man1/galera_new_cluster.1*
 %{_mandir}/man1/galera_recovery.1*
 %{_mandir}/man1/mariadb-service-convert.1*
@@ -1388,15 +1477,21 @@ fi
 %{_mandir}/man1/myisam_ftdump.1*
 %{_mandir}/man1/my_print_defaults.1*
 
-%{_mandir}/man1/mysql_{install_db,secure_installation,tzinfo_to_sql}.1*
-%{_mandir}/man1/mariadb-{install-db,secure-installation,tzinfo-to-sql}.1*
-%{_mandir}/man1/{mysqld_,mariadbd-}safe.1*
+%{_mandir}/man1/mysql_install_db.1*
+%{_mandir}/man1/mysql_secure_installation.1*
+%{_mandir}/man1/mysql_tzinfo_to_sql.1*
+%{_mandir}/man1/mysqld_safe.1*
+%{_mandir}/man1/mariadb-install-db.1*
+%{_mandir}/man1/mariadb-secure-installation.1*
+%{_mandir}/man1/mariadb-tzinfo-to-sql.1*
+%{_mandir}/man1/mariadbd-safe.1*
 
 %{_mandir}/man1/innochecksum.1*
 %{_mandir}/man1/replace.1*
 %{_mandir}/man1/resolveip.1*
 %{_mandir}/man1/resolve_stack_dump.1*
-%{_mandir}/man8/{mysqld,mariadbd}.8*
+%{_mandir}/man8/mysqld.8*
+%{_mandir}/man8/mariadbd.8*
 %{_mandir}/man1/wsrep_*.1*
 
 %{_mandir}/man1/mysql.server.1*
@@ -1416,10 +1511,10 @@ fi
 %{_datadir}/%{pkg_name}/mroonga/uninstall.sql
 %license %{_datadir}/%{pkg_name}/mroonga/COPYING
 %license %{_datadir}/%{pkg_name}/mroonga/AUTHORS
-%license %{_datadir}/%{name}-server/groonga-normalizer-mysql/lgpl-2.0.txt
-%license %{_datadir}/%{name}-server/groonga/COPYING
-%doc %{_datadir}/%{name}-server/groonga-normalizer-mysql/README.md
-%doc %{_datadir}/%{name}-server/groonga/README.md
+%license %{_datadir}/%{daemon_name}-server/groonga-normalizer-mysql/lgpl-2.0.txt
+%license %{_datadir}/%{daemon_name}-server/groonga/COPYING
+%doc %{_datadir}/%{daemon_name}-server/groonga-normalizer-mysql/README.md
+%doc %{_datadir}/%{daemon_name}-server/groonga/README.md
 %endif
 %if %{with galera}
 %{_datadir}/%{pkg_name}/wsrep.cnf
@@ -1452,8 +1547,12 @@ fi
 %attr(0640,mysql,mysql) %config %ghost %verify(not md5 size mtime) %{logfile}
 %config(noreplace) %{logrotateddir}/%{daemon_name}
 
-%{_tmpfilesdir}/%{name}.conf
-%{_sysusersdir}/%{name}.conf
+%{_tmpfilesdir}/%{daemon_name}.conf
+%if 0%{?fedora} >= 21 || 0%{?rhel} >= 8
+%{_sysusersdir}/%{daemon_name}.conf
+%else
+%exclude %{_sysusersdir}/%{daemon_name}.conf
+%endif
 
 %if %{with cracklib}
 %files cracklib-password-check
@@ -1463,9 +1562,11 @@ fi
 
 %if %{with backup}
 %files backup
-%{_bindir}/maria{,db-}backup
+%{_bindir}/mariabackup
+%{_bindir}/mariadb-backup
 %{_bindir}/mbstream
-%{_mandir}/man1/maria{,db-}backup.1*
+%{_mandir}/man1/mariabackup.1*
+%{_mandir}/man1/mariadb-backup.1*
 %{_mandir}/man1/mbstream.1*
 %endif
 
@@ -1473,10 +1574,12 @@ fi
 %files rocksdb-engine
 %config(noreplace) %{_sysconfdir}/my.cnf.d/rocksdb.cnf
 %{_bindir}/myrocks_hotbackup
-%{_bindir}/{mysql_,mariadb-}ldb
+%{_bindir}/mysql_ldb
+%{_bindir}/mariadb-ldb
 %{_bindir}/sst_dump
 %{_libdir}/%{pkg_name}/plugin/ha_rocksdb.so
-%{_mandir}/man1/{mysql_,mariadb-}ldb.1*
+%{_mandir}/man1/mysql_ldb.1*
+%{_mandir}/man1/mariadb-ldb.1*
 %endif
 
 %if %{with tokudb}
@@ -1515,21 +1618,43 @@ fi
 
 %files server-utils
 # Perl utilities
-%{_bindir}/mysql{_convert_table_format,dumpslow,_fix_extensions,hotcopy,_setpermission}
-%{_bindir}/mariadb-{convert-table-format,dumpslow,fix-extensions,hotcopy,setpermission}
-%{_bindir}/{mysqld_,mariadbd-}multi
+%{_bindir}/mysql_convert_table_format
+%{_bindir}/mysqldumpslow
+%{_bindir}/mysql_fix_extensions
+%{_bindir}/mysqlhotcopy
+%{_bindir}/mysql_setpermission
+%{_bindir}/mysqld_multi
+%{_bindir}/mariadb-convert-table-format
+%{_bindir}/mariadb-dumpslow
+%{_bindir}/mariadb-fix-extensions
+%{_bindir}/mariadb-hotcopy
+%{_bindir}/mariadb-setpermission
+%{_bindir}/mariadbd-multi
 
-%{_mandir}/man1/mysql{_convert_table_format,dumpslow,_fix_extensions,hotcopy,_setpermission}.1*
-%{_mandir}/man1/mariadb-{convert-table-format,dumpslow,fix-extensions,hotcopy,setpermission}.1*
-%{_mandir}/man1/{mysqld_,mariadbd-}multi.1*
+%{_mandir}/man1/mysql_convert_table_format.1*
+%{_mandir}/man1/mysqldumpslow.1*
+%{_mandir}/man1/mysql_fix_extensions.1*
+%{_mandir}/man1/mysqlhotcopy.1*
+%{_mandir}/man1/mysql_setpermission.1*
+%{_mandir}/man1/mysqld_multi.1*
+%{_mandir}/man1/mariadb-convert-table-format.1*
+%{_mandir}/man1/mariadb-dumpslow.1*
+%{_mandir}/man1/mariadb-fix-extensions.1*
+%{_mandir}/man1/mariadb-hotcopy.1*
+%{_mandir}/man1/mariadb-setpermission.1*
+%{_mandir}/man1/mariadbd-multi.1*
 # Utilities that can be used remotely
-%{_bindir}/{mysql_,mariadb-}upgrade
+%{_bindir}/mysql_upgrade
+%{_bindir}/mariadb-upgrade
 %{_bindir}/perror
-%{_mandir}/man1/{mysql_,mariadb-}upgrade.1*
+%{_mandir}/man1/mysql_upgrade.1*
+%{_mandir}/man1/mariadb-upgrade.1*
 %{_mandir}/man1/perror.1*
 # Other utilities
-%{_bindir}/{mysqld_safe_helper,mariadbd-safe-helper}
-%{_mandir}/man1/{mysqld_safe_helper,mariadbd-safe-helper}.1*
+%{_bindir}/mysqld_safe_helper
+%{_bindir}/mariadbd-safe-helper
+%{_mandir}/man1/mysqld_safe_helper.1*
+%{_mandir}/man1/mariadbd-safe-helper.1*
 
 %if %{with devel}
 %files devel
@@ -1537,12 +1662,14 @@ fi
 %{_datadir}/aclocal/mysql.m4
 %{_libdir}/pkgconfig/*mariadb.pc
 %if %{with clibrary}
-%{_libdir}/{libmysqlclient.so.18,libmariadb.so,libmysqlclient.so,libmysqlclient_r.so}
 %{_bindir}/mysql_config*
 %{_bindir}/mariadb_config*
 %{_libdir}/libmariadb.so
+%if %{without parallel_libs}
+%{_libdir}/libmysqlclient.so.18
 %{_libdir}/libmysqlclient.so
 %{_libdir}/libmysqlclient_r.so
+%endif
 %{_mandir}/man1/mysql_config*
 %{_mandir}/man1/mariadb_config*
 %endif
@@ -1561,22 +1688,34 @@ fi
 %files test
 %if %{with embedded}
 %{_bindir}/test-connect-t
-%{_bindir}/{mysql_client_test_embedded,mysqltest_embedded}
-%{_bindir}/{mariadb-client-test-embedded,mariadb-test-embedded}
-%{_mandir}/man1/{mysql_client_test_embedded,mysqltest_embedded}.1*
-%{_mandir}/man1/{mariadb-client-test-embedded,mariadb-test-embedded}.1*
+%{_bindir}/mysql_client_test_embedded
+%{_bindir}/mysqltest_embedded
+%{_bindir}/mariadb-client-test-embedded
+%{_bindir}/mariadb-test-embedded
+%{_mandir}/man1/mysql_client_test_embedded.1*
+%{_mandir}/man1/mysqltest_embedded.1*
+%{_mandir}/man1/mariadb-client-test-embedded.1*
+%{_mandir}/man1/mariadb-test-embedded.1*
 %endif
-%{_bindir}/{mysql_client_test,mysqltest,mariadb-client-test,mariadb-test}
+%{_bindir}/mysql_client_test
+%{_bindir}/mysqltest
+%{_bindir}/mariadb-client-test
+%{_bindir}/mariadb-test
 %{_bindir}/my_safe_process
 %attr(-,mysql,mysql) %{_datadir}/mysql-test
 %{_mandir}/man1/mysql_client_test.1*
-%{_mandir}/man1/{mysql_client_test,mysqltest,mariadb-client-test,mariadb-test}.1*
+%{_mandir}/man1/mysqltest.1*
+%{_mandir}/man1/mariadb-client-test.1*
+%{_mandir}/man1/mariadb-test.1*
 %{_mandir}/man1/my_safe_process.1*
 %{_mandir}/man1/mysql-stress-test.pl.1*
 %{_mandir}/man1/mysql-test-run.pl.1*
 %endif
 
 %changelog
+* Fri Jul 24 2020 Carl George <carl@george.computer> - 10.4.13-4
+- Port from Fedora to IUS
+
 * Tue Jul 14 2020 Michal Schorm <mschorm@redhat.com> - 10.4.13-3
 - Make conflicts between corresponding mariadb and mysql packages explicit
 - Get rid of the Conflicts macro, it was intended to mark conflicts with
