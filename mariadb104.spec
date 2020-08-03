@@ -203,7 +203,14 @@ Patch15:          %{pkgnamepatch}-groonga.patch
 #   Patch16: Workaround for "chown 0" with priviledges dropped to "mysql" user
 Patch16:          %{pkgnamepatch}-auth_pam_tool_dir.patch
 
-BuildRequires:    cmake gcc-c++
+# At least version 3.3.0 is required to enable instantiated systemd unit files
+# https://github.com/MariaDB/server/blob/mariadb-10.4.13/support-files/CMakeLists.txt#L129
+%if %{defined rhel} && 0%{?rhel} < 8
+BuildRequires:    cmake3 >= 3.3.0
+%else
+BuildRequires:    cmake >= 3.3.0
+%endif
+BuildRequires:    gcc-c++
 BuildRequires:    multilib-rpm-config
 BuildRequires:    selinux-policy-devel
 BuildRequires:    systemd systemd-devel
@@ -825,7 +832,11 @@ export CFLAGS CXXFLAGS CPPFLAGS
 
 # The INSTALL_xxx macros have to be specified relative to CMAKE_INSTALL_PREFIX
 # so we can't use %%{_datadir} and so forth here.
+%if %{defined rhel} && 0%{?rhel} < 8
+%cmake3 . \
+%else
 %cmake . \
+%endif
          -DBUILD_CONFIG=mysql_release \
          -DFEATURE_SET="community" \
          -DINSTALL_LAYOUT=RPM \
@@ -890,7 +901,11 @@ export CFLAGS CXXFLAGS CPPFLAGS
 
 # Print all Cmake options values
 # cmake ./ -LAH for List Advanced Help
+%if %{defined rhel} && 0%{?rhel} < 8
+cmake3 ./ -L
+%else
 cmake ./ -L
+%endif
 
 %make_build VERBOSE=1
 
@@ -1527,10 +1542,7 @@ fi
 %{_datadir}/%{pkg_name}/policy/selinux/mariadb-server.*
 %{_datadir}/%{pkg_name}/policy/selinux/mariadb.*
 %{_datadir}/%{pkg_name}/systemd/mariadb.service
-# mariadb@ is installed only when we have cmake newer than 3.3
-%if 0%{?fedora} || 0%{?rhel} > 7
 %{_datadir}/%{pkg_name}/systemd/mariadb@.service
-%endif
 
 %{_unitdir}/%{daemon_name}*
 %{?with_tokudb:%exclude %{_unitdir}/mariadb.service.d/tokudb.conf}
@@ -1717,6 +1729,7 @@ fi
 * Fri Jul 24 2020 Carl George <carl@george.computer> - 10.4.13-4
 - Port from Fedora to IUS
 - Build with readline instead of libedit
+- Build with cmake3 to enable mariadb@.service
 
 * Tue Jul 14 2020 Michal Schorm <mschorm@redhat.com> - 10.4.13-3
 - Make conflicts between corresponding mariadb and mysql packages explicit
