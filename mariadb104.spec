@@ -215,7 +215,7 @@ BuildRequires:    zlib-devel
 # asynchornous operations stuff; needed also for wsrep API
 BuildRequires:    libaio-devel
 # commands history features
-BuildRequires:    libedit-devel
+BuildRequires:    readline-devel
 # CLI graphic; needed also for wsrep API
 BuildRequires:    ncurses-devel
 # debugging stuff
@@ -862,6 +862,7 @@ export CFLAGS CXXFLAGS CPPFLAGS
          -DWITH_WSREP=%{?with_galera:ON}%{!?with_galera:OFF} \
          -DWITH_INNODB_DISALLOW_WRITES=%{?with_galera:ON}%{!?with_galera:OFF} \
          -DWITH_EMBEDDED_SERVER=%{?with_embedded:ON}%{!?with_embedded:OFF} \
+         -DWITH_READLINE=ON \
          -DWITH_MARIABACKUP=%{?with_backup:ON}%{!?with_backup:NO} \
          -DWITH_UNIT_TESTS=%{?with_test:ON}%{!?with_test:NO} \
          -DCONC_WITH_SSL=%{?with_clibrary:ON}%{!?with_clibrary:NO} \
@@ -1715,6 +1716,7 @@ fi
 %changelog
 * Fri Jul 24 2020 Carl George <carl@george.computer> - 10.4.13-4
 - Port from Fedora to IUS
+- Build with readline instead of libedit
 
 * Tue Jul 14 2020 Michal Schorm <mschorm@redhat.com> - 10.4.13-3
 - Make conflicts between corresponding mariadb and mysql packages explicit
