@@ -1434,10 +1434,12 @@ fi
 %{_bindir}/mysql_secure_installation
 %{_bindir}/mysql_tzinfo_to_sql
 %{_bindir}/mysqld_safe
+%{_bindir}/mysql_upgrade
 %{_bindir}/mariadb-install-db
 %{_bindir}/mariadb-secure-installation
 %{_bindir}/mariadb-tzinfo-to-sql
 %{_bindir}/mariadbd-safe
+%{_bindir}/mariadb-upgrade
 
 %{_bindir}/innochecksum
 %{_bindir}/replace
@@ -1497,10 +1499,12 @@ fi
 %{_mandir}/man1/mysql_secure_installation.1*
 %{_mandir}/man1/mysql_tzinfo_to_sql.1*
 %{_mandir}/man1/mysqld_safe.1*
+%{_mandir}/man1/mysql_upgrade.1*
 %{_mandir}/man1/mariadb-install-db.1*
 %{_mandir}/man1/mariadb-secure-installation.1*
 %{_mandir}/man1/mariadb-tzinfo-to-sql.1*
 %{_mandir}/man1/mariadbd-safe.1*
+%{_mandir}/man1/mariadb-upgrade.1*
 
 %{_mandir}/man1/innochecksum.1*
 %{_mandir}/man1/replace.1*
@@ -1657,11 +1661,7 @@ fi
 %{_mandir}/man1/mariadb-setpermission.1*
 %{_mandir}/man1/mariadbd-multi.1*
 # Utilities that can be used remotely
-%{_bindir}/mysql_upgrade
-%{_bindir}/mariadb-upgrade
 %{_bindir}/perror
-%{_mandir}/man1/mysql_upgrade.1*
-%{_mandir}/man1/mariadb-upgrade.1*
 %{_mandir}/man1/perror.1*
 # Other utilities
 %{_bindir}/mysqld_safe_helper
@@ -1730,6 +1730,7 @@ fi
 - Port from Fedora to IUS
 - Build with readline instead of libedit
 - Build with cmake3 to enable mariadb@.service
+- Move mysql_upgrade/mariadb-upgrade to server subpackage
 
 * Tue Jul 14 2020 Michal Schorm <mschorm@redhat.com> - 10.4.13-3
 - Make conflicts between corresponding mariadb and mysql packages explicit
