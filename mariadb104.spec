@@ -80,7 +80,7 @@
 %bcond_without common
 %bcond_without errmsg
 %bcond_without test
-%bcond_without galera
+%bcond_with    galera
 %bcond_without backup
 
 # When there is already another package that ships /etc/my.cnf,
@@ -1174,6 +1174,8 @@ rm %{buildroot}%{_sysconfdir}/sysconfig/clustercheck
 rm %{buildroot}%{_bindir}/{clustercheck,galera_new_cluster}
 rm %{buildroot}%{_bindir}/galera_recovery
 rm %{buildroot}%{_datadir}/%{pkg_name}/systemd/use_galera_new_cluster.conf
+rm %{buildroot}%{_mandir}/man1/galera_new_cluster.1*
+rm %{buildroot}%{_mandir}/man1/galera_recovery.1*
 %endif
 
 %if %{without rocksdb}
@@ -1413,6 +1415,8 @@ fi
 %config(noreplace) %{_sysconfdir}/my.cnf.d/galera.cnf
 %attr(0640,root,root) %ghost %config(noreplace) %{_sysconfdir}/sysconfig/clustercheck
 %{_datadir}/selinux/packages/%{name}/%{name}-server-galera.pp
+%{_mandir}/man1/galera_new_cluster.1*
+%{_mandir}/man1/galera_recovery.1*
 %endif
 
 %files server
@@ -1488,8 +1492,6 @@ fi
 %{_mandir}/man1/aria_ftdump.1*
 %{_mandir}/man1/aria_pack.1*
 %{_mandir}/man1/aria_read_log.1*
-%{_mandir}/man1/galera_new_cluster.1*
-%{_mandir}/man1/galera_recovery.1*
 %{_mandir}/man1/mariadb-service-convert.1*
 %{_mandir}/man1/myisamchk.1*
 %{_mandir}/man1/myisamlog.1*
@@ -1731,6 +1733,7 @@ fi
 - Build with cmake3 to enable mariadb@.service
 - Move mysql_upgrade/mariadb-upgrade to server subpackage
 - Move mysqld_safe_helper/mariadb-safe-helper back to server subpackage
+- Disable server-galera subpackage, galera is too old in EPEL7
 
 * Tue Jul 14 2020 Michal Schorm <mschorm@redhat.com> - 10.4.13-3
 - Make conflicts between corresponding mariadb and mysql packages explicit
