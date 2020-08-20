@@ -153,8 +153,8 @@
 %global sameevr   %{epoch}:%{version}-%{release}
 
 Name:             mariadb104
-Version:          10.4.13
-Release:          4%{?with_debug:.debug}%{?dist}
+Version:          10.4.14
+Release:          1%{?with_debug:.debug}%{?dist}
 Epoch:            3
 
 Summary:          A very fast and robust SQL database server
@@ -1727,6 +1727,9 @@ fi
 %endif
 
 %changelog
+* Thu Aug 20 2020 Michal Schorm <mschorm@redhat.com> - 10.4.14-1
+- Rebase to 10.4.14
+
 * Fri Jul 24 2020 Carl George <carl@george.computer> - 10.4.13-4
 - Port from Fedora to IUS
 - Build with readline instead of libedit
