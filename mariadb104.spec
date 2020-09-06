@@ -11,7 +11,7 @@
 # The last version on which the full testsuite has been run
 # In case of further rebuilds of that version, don't require full testsuite to be run
 # run only "main" suite
-%global last_tested_version 10.4.13
+%global last_tested_version 10.4.14
 # Set to 1 to force run the testsuite even if it was already tested in current version
 %global force_run_testsuite 0
 
