@@ -179,10 +179,25 @@ Source50:         rh-skipped-tests-base.list
 Source51:         rh-skipped-tests-arm.list
 Source52:         rh-skipped-tests-s390.list
 Source53:         rh-skipped-tests-ppc.list
-# Proposed upstream: https://jira.mariadb.org/browse/MDEV-12442
-# General upstream response was slightly positive
+# Red Hat OpenStack scripts:
+#   Clustercheck:
+#     Maintainer:
+#       Damien Ciabrini <dciabrin@redhat.com>
+#     Source / Upstream:
+#       Damien; based on https://github.com/olafz/percona-clustercheck
+#       not updated in 5 years; low-effort maintenance
+#     Purpose:
+#       In Openstack, galera is accessed like an A/P database, we have a
+#       load balancer (haproxy) that drives traffic to a single node and
+#       performs failover when the galera node monitor fails.
+#       clustercheck.sh is the monitoring script that is being called remotely
+#       by haproxy. It is a glue between haproxy and the local galera node that
+#       can run SQL commands to check whether the local galera is connected to the galera cluster.
+#     Proposed to MariaDB upstream: https://jira.mariadb.org/browse/MDEV-12442
+#       General upstream response was slightly positive
 Source70:         clustercheck.sh
 Source71:         LICENSE.clustercheck
+
 # Upstream said: "Generally MariaDB has more allows to allow for xtradb sst mechanism".
 # https://jira.mariadb.org/browse/MDEV-12646
 Source72:         mariadb-server-galera.te
