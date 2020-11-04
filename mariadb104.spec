@@ -153,8 +153,8 @@
 %global sameevr   %{epoch}:%{version}-%{release}
 
 Name:             mariadb104
-Version:          10.4.14
-Release:          2%{?with_debug:.debug}%{?dist}
+Version:          10.4.16
+Release:          1%{?with_debug:.debug}%{?dist}
 Epoch:            3
 
 Summary:          A very fast and robust SQL database server
@@ -1744,6 +1744,9 @@ fi
 %endif
 
 %changelog
+* Wed Nov 04 2020 Michal Schorm <mschorm@redhat.com> - 10.4.16-1
+- Rebase to 10.4.16
+
 * Sun Sep 06 2020 Michal Schorm <mschorm@redhat.com> - 10.4.14-2
 - Resolves: #1851605
 

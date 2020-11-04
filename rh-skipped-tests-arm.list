@@ -1,2 +1,5 @@
 # Fails since 10.3.17, only on armv7hl
 versioning.partition      :
+
+# Fail since 10.4.16 only on armv7hl
+versioning.partition_rotation :

@@ -41,3 +41,6 @@ encryption.innodb-redo-badkey                :
 # Fails on all architectures since 10.4.14
 main.ssl_system_ca                           :
 disks.disks                                  :
+
+# Since 10.3.26 produces a warning to the test logfile which causes the test to fail
+plugins.feedback_plugin_load                 :
