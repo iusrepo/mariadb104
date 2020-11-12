@@ -749,9 +749,6 @@ rm -r storage/rocksdb/
 %patch15 -p1
 %patch16 -p1
 
-# workaround for upstream bug #56342
-#rm mysql-test/t/ssl_8k_key-master.opt
-
 # generate a list of tests that fail, but are not disabled by upstream
 cat %{SOURCE50} | tee -a mysql-test/unstable-tests
 
@@ -1176,7 +1173,6 @@ rm %{buildroot}%{_bindir}/{mariadb-client-test-embedded,mariadb-test-embedded}
 rm %{buildroot}%{_mandir}/man1/{mysql_client_test_embedded,mysqltest_embedded}.1*
 rm %{buildroot}%{_mandir}/man1/{mariadb-client-test-embedded,mariadb-test-embedded}.1*
 %endif # embedded
-rm %{buildroot}%{_bindir}/test-connect-t
 rm %{buildroot}%{_bindir}/{mysql_client_test,mysqltest}
 rm %{buildroot}%{_bindir}/{mariadb-client-test,mariadb-test}
 rm %{buildroot}%{_mandir}/man1/{mysql_client_test,mysqltest,my_safe_process}.1*
@@ -1197,6 +1193,11 @@ rm %{buildroot}%{_mandir}/man1/galera_recovery.1*
 
 %if %{without rocksdb}
 rm %{buildroot}%{_mandir}/man1/{mysql_,mariadb-}ldb.1*
+%endif
+
+%if %{without backup}
+rm %{buildroot}%{_mandir}/man1/maria{,db-}backup.1*
+rm %{buildroot}%{_mandir}/man1/mbstream.1*
 %endif
 
 %check
@@ -1468,8 +1469,10 @@ fi
 %{_bindir}/replace
 %{_bindir}/resolve_stack_dump
 %{_bindir}/resolveip
+%if %{with galera}
 # wsrep_sst_common should be moved to /usr/share/mariadb: https://jira.mariadb.org/browse/MDEV-14296
 %{_bindir}/wsrep_*
+%endif
 
 %config(noreplace) %{_sysconfdir}/my.cnf.d/%{pkg_name}-server.cnf
 %config(noreplace) %{_sysconfdir}/my.cnf.d/enable_encryption.preset
@@ -1584,7 +1587,7 @@ fi
 %attr(0750,mysql,mysql) %dir %{logfiledir}
 # This does what it should.
 # RPMLint error "conffile-without-noreplace-flag /var/log/mariadb/mariadb.log" is false positive.
-%attr(0640,mysql,mysql) %config %ghost %verify(not md5 size mtime) %{logfile}
+%attr(0660,mysql,mysql) %config %ghost %verify(not md5 size mtime) %{logfile}
 %config(noreplace) %{logrotateddir}/%{daemon_name}
 
 %{_tmpfilesdir}/%{daemon_name}.conf
