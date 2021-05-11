@@ -11,7 +11,7 @@
 # The last version on which the full testsuite has been run
 # In case of further rebuilds of that version, don't require full testsuite to be run
 # run only "main" suite
-%global last_tested_version 10.4.18
+%global last_tested_version 10.4.19
 # Set to 1 to force run the testsuite even if it was already tested in current version
 %global force_run_testsuite 0
 
@@ -153,7 +153,7 @@
 %global sameevr   %{epoch}:%{version}-%{release}
 
 Name:             mariadb104
-Version:          10.4.18
+Version:          10.4.19
 Release:          1%{?with_debug:.debug}%{?dist}
 Epoch:            3
 
@@ -1549,7 +1549,6 @@ fi
 %{_datadir}/%{pkg_name}/mysql_system_tables.sql
 %{_datadir}/%{pkg_name}/mysql_system_tables_data.sql
 %{_datadir}/%{pkg_name}/mysql_test_data_timezone.sql
-%{_datadir}/%{pkg_name}/mysql_to_mariadb.sql
 %{_datadir}/%{pkg_name}/mysql_performance_tables.sql
 %{_datadir}/%{pkg_name}/mysql_test_db.sql
 %if %{with mroonga}
@@ -1747,6 +1746,9 @@ fi
 %endif
 
 %changelog
+* Tue May 11 2021 Michal Schorm <mschorm@redhat.com> - 10.4.19-1
+- Rebase to 10.4.19
+
 * Wed Feb 24 2021 Michal Schorm <mschorm@redhat.com> - 10.4.18-1
 - Rebase to 10.4.18
 
