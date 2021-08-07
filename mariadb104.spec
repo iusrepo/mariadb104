@@ -11,7 +11,7 @@
 # The last version on which the full testsuite has been run
 # In case of further rebuilds of that version, don't require full testsuite to be run
 # run only "main" suite
-%global last_tested_version 10.4.20
+%global last_tested_version 10.4.21
 # Set to 1 to force run the testsuite even if it was already tested in current version
 %global force_run_testsuite 0
 
@@ -113,7 +113,7 @@
 %bcond_without unbundled_pcre
 %else
 %bcond_with unbundled_pcre
-%global pcre_bundled_version 8.44
+%global pcre_bundled_version 8.45
 %endif
 
 # Use main python interpretter version
@@ -153,7 +153,7 @@
 %global sameevr   %{epoch}:%{version}-%{release}
 
 Name:             mariadb104
-Version:          10.4.20
+Version:          10.4.21
 Release:          1%{?with_debug:.debug}%{?dist}
 Epoch:            3
 
@@ -1746,6 +1746,9 @@ fi
 %endif
 
 %changelog
+* Sat Aug 07 2021 Michal Schorm <mschorm@redhat.com> - 10.4.21-1
+- Rebase to 10.4.21
+
 * Fri Jul 02 2021 Michal Schorm <mschorm@redhat.com> - 10.4.20-1
 - Rebase to 10.4.20
 
