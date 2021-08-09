@@ -1492,7 +1492,7 @@ fi
 %attr(0755,mysql,mysql) %dir %{_libdir}/%{pkg_name}/plugin/auth_pam_tool_dir
 %{_libdir}/%{pkg_name}/plugin/auth_pam_tool_dir/auth_pam_tool
 %{_libdir}/security/pam_user_map.so
-%{_sysconfdir}/security/user_map.conf
+%config(noreplace) %{_sysconfdir}/security/user_map.conf
 %{_libdir}/%{pkg_name}/plugin/*.so
 %{_libdir}/%{pkg_name}/plugin/daemon_example.ini
 %{?with_oqgraph:%exclude %{_libdir}/%{pkg_name}/plugin/ha_oqgraph.so}
