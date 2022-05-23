@@ -1160,7 +1160,8 @@ rm -r %{buildroot}%{_datadir}/%{pkg_name}/charsets
 rm %{buildroot}%{_datadir}/%{pkg_name}/errmsg-utf8.txt
 rm -r %{buildroot}%{_datadir}/%{pkg_name}/{english,czech,danish,dutch,estonian,\
 french,german,greek,hungarian,italian,japanese,korean,norwegian,norwegian-ny,\
-polish,portuguese,romanian,russian,serbian,slovak,spanish,swedish,ukrainian,hindi}
+polish,portuguese,romanian,russian,serbian,slovak,spanish,swedish,ukrainian,hindi,\
+bulgarian,chinese}
 %endif
 
 %if %{without test}
@@ -1417,6 +1418,8 @@ fi
 %lang(es) %{_datadir}/%{pkg_name}/spanish
 %lang(sv) %{_datadir}/%{pkg_name}/swedish
 %lang(uk) %{_datadir}/%{pkg_name}/ukrainian
+%lang(bg) %{_datadir}/%{pkg_name}/bulgarian
+%lang(zh) %{_datadir}/%{pkg_name}/chinese
 %endif
 
 %if %{with galera}
