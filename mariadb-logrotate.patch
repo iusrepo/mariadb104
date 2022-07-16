@@ -52,6 +52,7 @@ Update 6/2018
 -        # create 600 mysql mysql
 +@LOG_LOCATION@ {
 +        create 600 mysql mysql
+         su mysql mysql
          notifempty
          daily
          rotate 3

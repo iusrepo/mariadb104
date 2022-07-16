@@ -153,7 +153,7 @@
 %global sameevr   %{epoch}:%{version}-%{release}
 
 Name:             mariadb104
-Version:          10.4.22
+Version:          10.4.24
 Release:          1%{?with_debug:.debug}%{?dist}
 Epoch:            3
 
@@ -213,8 +213,6 @@ Patch9:           %{pkgnamepatch}-ownsetup.patch
 Patch10:          %{pkgnamepatch}-ssl-cipher-tests.patch
 #   Patch13: Fix Spider code on armv7hl; https://jira.mariadb.org/browse/MDEV-18737
 Patch13:          %{pkgnamepatch}-spider_on_armv7hl.patch
-#   Patch15:  Add option to edit groonga's and groonga-normalizer-mysql install path
-Patch15:          %{pkgnamepatch}-groonga.patch
 #   Patch16: Workaround for "chown 0" with priviledges dropped to "mysql" user
 Patch16:          %{pkgnamepatch}-auth_pam_tool_dir.patch
 
@@ -746,7 +744,6 @@ rm -r storage/rocksdb/
 %patch9 -p1
 %patch10 -p1
 %patch13 -p1
-%patch15 -p1
 %patch16 -p1
 
 # generate a list of tests that fail, but are not disabled by upstream
@@ -1746,6 +1743,9 @@ fi
 %endif
 
 %changelog
+* Sat Jul 16 2022 Michal Schorm <mschorm@redhat.com> - 10.4.24-1
+- Rebase to 10.4.24
+
 * Sat Jul 16 2022 Michal Schorm <mschorm@redhat.com> - 10.4.22-1
 - Rebase to 10.4.22
 
