@@ -153,7 +153,7 @@
 %global sameevr   %{epoch}:%{version}-%{release}
 
 Name:             mariadb104
-Version:          10.4.21
+Version:          10.4.22
 Release:          1%{?with_debug:.debug}%{?dist}
 Epoch:            3
 
@@ -1746,6 +1746,9 @@ fi
 %endif
 
 %changelog
+* Sat Jul 16 2022 Michal Schorm <mschorm@redhat.com> - 10.4.22-1
+- Rebase to 10.4.22
+
 * Sat Aug 07 2021 Michal Schorm <mschorm@redhat.com> - 10.4.21-1
 - Rebase to 10.4.21
 
